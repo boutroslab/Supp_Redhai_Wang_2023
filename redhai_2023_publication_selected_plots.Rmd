@@ -18,7 +18,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = TRUE, cache.lazy = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
 ```
 
 **Last modified:**
@@ -49,7 +49,7 @@ theme_set(theme_cowplot())
 
 ```{r prepare_data_apc}
 
-screen_result_apc <- read_excel("FINAL modifier screen apc .xlsx", range = "A3:T126")
+screen_result_apc <- read_excel("raw_data/FINAL modifier screen apc .xlsx", range = "A3:T126")
 
 screen_result_apc_long <- screen_result_apc %>% 
   rename("gene_name"="...1") %>% 
@@ -76,7 +76,7 @@ screen_result_apc_long <- screen_result_apc_long %>%
 
 ```{r dotplot_apc_long, fig.height=18}
 
-screen_result_apc_long %>% 
+screen_results_apc <- screen_result_apc_long %>% 
   ggplot(aes(y=reorder(GENE, mean_score), x=mean_score, color = mean_score)) +  
   geom_vline(xintercept = c(0.5, -0.5), size = 0.25, colour = 'gray30', linetype = "dashed") +
   geom_errorbar(aes(xmin = mean_score - sem_score, xmax = mean_score + sem_score), color = "gray70") + 
@@ -87,6 +87,10 @@ screen_result_apc_long %>%
   xlim(-2, 2) +
   ggtitle("APC screen")
 
+screen_results_apc
+
+ggsave(filename = "Graphics/screen_apc_results.pdf", plot = screen_results_apc, device = pdf, height = 18)
+
 ```
 
 # Figure 2b
@@ -95,7 +99,7 @@ screen_result_apc_long %>%
 
 ```{r expression-data-preparation}
 
-expression_data <- read_excel("APC_data.xlsx", col_names = FALSE)
+expression_data <- read_excel("raw_data/APC_data.xlsx", col_names = FALSE)
 expression_data <- expression_data %>%   
   select(where(~!all(is.na(.x)))) %>% 
   filter(!row_number() %in% c(1,2,3)) %>% 
@@ -124,13 +128,17 @@ expression_data.long.scaled <-expression_data.long %>%
   mutate(scaled_position = position/max_position) %>% 
   ungroup() 
 
-expression_data.long.scaled %>% 
+expression_data_APC <- expression_data.long.scaled %>% 
   ggplot(aes(x=scaled_position, y=expression, color=genotype)) + 
   geom_point(aes(shape = line), size = 1, alpha = 0.5) + 
   geom_smooth() + 
   labs(x = "scaled position") +
   scale_color_manual(values = rev(line_colors)) + 
   theme(legend.position = "bottom")
+
+expression_data_APC
+
+ggsave(filename = "Graphics/expression_data_APC.pdf", plot = expression_data_APC, device = pdf)
 
 ```
 
@@ -140,7 +148,7 @@ expression_data.long.scaled %>%
 
 ```{r pla-prepare-data}
 
-pla_negative_gfp <- read_excel("PLA quantifications.xlsx", range = "C6:AD35") %>% select(matches("Distance|Gray_Value")) 
+pla_negative_gfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C6:AD35") %>% select(matches("Distance|Gray_Value")) 
 
 pla_negative_gfp.wide <- pla_negative_gfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_negative_gfp)/6)), each = 6)) %>% 
@@ -155,7 +163,7 @@ pla_negative_gfp.long <- pla_negative_gfp.wide %>%
   mutate(genotype = "GFP") %>% 
   relocate(genotype)
 
-pla_negative_rfp <- read_excel("PLA quantifications.xlsx", range = "C39:AD68") %>% select(matches("Distance|Gray_Value")) 
+pla_negative_rfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C39:AD68") %>% select(matches("Distance|Gray_Value")) 
 
 pla_negative_rfp.wide <- pla_negative_rfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_negative_rfp)/6)), each = 6)) %>% 
@@ -172,7 +180,7 @@ pla_negative_rfp.long <- pla_negative_rfp.wide %>%
 pla_negative.long <- bind_rows(pla_negative_gfp.long, pla_negative_rfp.long) %>% 
   filter(!is.na(distance))
 
-pla_positive_gfp <- read_excel("PLA quantifications.xlsx", range = "C75:AD104") %>% select(matches("Distance|Gray_Value")) 
+pla_positive_gfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C75:AD104") %>% select(matches("Distance|Gray_Value")) 
 
 pla_positive_gfp.wide <- pla_positive_gfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_positive_gfp)/6)), each = 6)) %>% 
@@ -187,7 +195,7 @@ pla_positive_gfp.long <- pla_positive_gfp.wide %>%
   relocate(genotype)
 
 
-pla_positive_rfp <- read_excel("PLA quantifications.xlsx", range = "C107:AD136") %>% select(matches("Distance|Gray_Value")) 
+pla_positive_rfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C107:AD136") %>% select(matches("Distance|Gray_Value")) 
 
 pla_positive_rfp.wide <- pla_positive_rfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_positive_rfp)/6)), each = 6)) %>% 
@@ -210,7 +218,7 @@ pla_positive.long <- bind_rows(pla_positive_gfp.long, pla_positive_rfp.long) %>%
 
 ```{r plot-pla}
 
-pla_positive.long %>% 
+pla_plot <- pla_positive.long %>% 
   mutate(title = "PLA positive") %>% 
   bind_rows(pla_negative.long %>% mutate(title = "PLA negative")) %>% 
   ggplot(aes(x=distance, y=expression, color=genotype)) + 
@@ -219,6 +227,10 @@ pla_positive.long %>%
   scale_color_manual(values = line_colors[c(1,3,2)]) + 
   theme(legend.position = "bottom") +
   facet_grid(cols = vars(title))
+
+pla_plot
+
+ggsave(filename = "Graphics/pla_plot.pdf", plot = pla_plot, device = pdf)
   
 ```
 
@@ -229,7 +241,7 @@ pla_positive.long %>%
 
 ```{r fz3-prepare-data}
 
-fz3_intestine_control <- read_excel("Fz3 quantification along intestine myots.xlsx", range = "G10:L6139") %>% select(matches("X|Y")) 
+fz3_intestine_control <- read_excel("raw_data/Fz3 quantification along intestine myots.xlsx", range = "G10:L6139") %>% select(matches("X|Y")) 
 
 old_names <- colnames(fz3_intestine_control)
 
@@ -241,7 +253,7 @@ fz3_intestine_control.long <- fz3_intestine_control %>%
   relocate(genotype)
 
 
-fz3_intestine_dcr_apc <- read_excel("Fz3 quantification along intestine myots.xlsx", range = "O10:T6102") %>% select(matches("X|Y")) 
+fz3_intestine_dcr_apc <- read_excel("raw_data/Fz3 quantification along intestine myots.xlsx", range = "O10:T6102") %>% select(matches("X|Y")) 
 
 old_names <- colnames(fz3_intestine_dcr_apc)
 
@@ -268,7 +280,7 @@ fz3_intestine.long.scaled <- fz3_intestine.long %>%
   mutate(scaled_distance = distance/max_distance) %>% 
   ungroup() 
 
-fz3_intestine.long.scaled %>% 
+fz3_plot <- fz3_intestine.long.scaled %>% 
   ggplot(aes(x=scaled_distance, y=expression, color=genotype)) + 
   geom_point(alpha=0.2) +
   geom_smooth() + 
@@ -276,6 +288,10 @@ fz3_intestine.long.scaled %>%
   xlab("scaled distance") +
   theme(legend.position = "bottom") +
   scale_x_reverse()
+
+fz3_plot
+
+ggsave(filename = "Graphics/fz3_plot.pdf", plot = fz3_plot, device = pdf)
 
 ```
 
