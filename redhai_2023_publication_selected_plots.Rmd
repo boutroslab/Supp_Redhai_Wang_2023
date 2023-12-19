@@ -1,0 +1,287 @@
+---
+title: "Redhai publication 2023 selected plots"
+author: "Erica Valentini"
+date: "19/12/2023"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = TRUE, cache.lazy = FALSE)
+```
+
+**Last modified:**
+```{r}
+print(date())
+```
+
+The following code is used to produce selected plots for the publication: __Rab35 restrains regional Wnt activation by regulating a Cdc42-JNK signalling relay in the intestine__
+
+# Import
+
+```{r import}
+library(tidyverse)
+library(plotrix)
+library(cowplot)
+library(viridis)
+library(readxl)
+library(ggrepel)
+library(padr)
+library(gmodels)
+library(rstatix)
+theme_set(theme_cowplot())
+```
+
+# Figure 1b
+
+## Prepare data
+
+```{r prepare_data_apc}
+
+screen_result_apc <- read_excel("FINAL modifier screen apc .xlsx", range = "A3:T126")
+
+screen_result_apc_long <- screen_result_apc %>% 
+  rename("gene_name"="...1") %>% 
+  mutate(GENE = str_replace_all(gene_name, c("rnai"="RNAi", "1DN"="1-DN", "wt"="WT", "-WT"=" WT", "GDI"="Gdi"))) %>%
+  select(!"gene_name") %>% 
+  group_by(GENE) %>% 
+  mutate(duplicate_line = dplyr::row_number()) %>% 
+  mutate(GENE = ifelse(duplicate_line > 1, paste(GENE, "line", duplicate_line, sep = " "), GENE)) %>%
+  ungroup() %>% 
+  select(!"duplicate_line") %>% 
+  pivot_longer(!"GENE", names_to = "column_name", values_to = "score") %>% 
+  filter(!is.na(score)) %>% 
+  select(!"column_name")
+
+screen_result_apc_long <- screen_result_apc_long %>% 
+  left_join(screen_result_apc_long %>% 
+              group_by(GENE) %>% 
+              summarise(mean_score = mean(score), sd_score = sd(score), sem_score = std.error(score)))
+
+
+```
+
+## Plot
+
+```{r dotplot_apc_long, fig.height=18}
+
+screen_result_apc_long %>% 
+  ggplot(aes(y=reorder(GENE, mean_score), x=mean_score, color = mean_score)) +  
+  geom_vline(xintercept = c(0.5, -0.5), size = 0.25, colour = 'gray30', linetype = "dashed") +
+  geom_errorbar(aes(xmin = mean_score - sem_score, xmax = mean_score + sem_score), color = "gray70") + 
+  geom_point(size = 3) + 
+  scale_color_viridis(limits=c(-2, 2)) +
+  theme_cowplot() + 
+  ylab("gene") +
+  xlim(-2, 2) +
+  ggtitle("APC screen")
+
+```
+
+# Figure 2b
+
+## Prepare data
+
+```{r expression-data-preparation}
+
+expression_data <- read_excel("APC_data.xlsx", col_names = FALSE)
+expression_data <- expression_data %>%   
+  select(where(~!all(is.na(.x)))) %>% 
+  filter(!row_number() %in% c(1,2,3)) %>% 
+  split.default(rep(c("Control", "APC RNAi", "APC RNAi + Rab35 CA", "APC RNAi + Rab35 DN"), each = 6)) %>% 
+  bind_rows(.id = "genotype")
+# Rename:
+new_names <- paste(rep(c("position", "expression"), 3), rep(seq(1,3), each = 2), sep = "_")
+old_names <- colnames(expression_data)[2:7]
+expression_data.wide <- expression_data %>% rename_at(vars(old_names), function(x) new_names)
+expression_data.long <- expression_data.wide %>% 
+  pivot_longer(cols = !genotype, cols_vary = "slowest", names_to = c(".value", "line"), names_pattern = "(.*)_(.)") %>% 
+  mutate(position = as.numeric(position), expression = as.numeric(expression)) %>% 
+  filter(!is.na(position))
+
+```
+
+## Plot
+
+```{r fit-line-scaled, fig.width=12}
+
+line_colors <- c("#A5A5A5", "#A41629", "#008C00", "#061276")
+
+expression_data.long.scaled <-expression_data.long %>% 
+  group_by(genotype) %>% 
+  mutate(max_position = max(position)) %>% 
+  mutate(scaled_position = position/max_position) %>% 
+  ungroup() 
+
+expression_data.long.scaled %>% 
+  ggplot(aes(x=scaled_position, y=expression, color=genotype)) + 
+  geom_point(aes(shape = line), size = 1, alpha = 0.5) + 
+  geom_smooth() + 
+  labs(x = "scaled position") +
+  scale_color_manual(values = rev(line_colors)) + 
+  theme(legend.position = "bottom")
+
+```
+
+# Figure 3h
+
+## Prepare data
+
+```{r pla-prepare-data}
+
+pla_negative_gfp <- read_excel("PLA quantifications.xlsx", range = "C6:AD35") %>% select(matches("Distance|Gray_Value")) 
+
+pla_negative_gfp.wide <- pla_negative_gfp %>% 
+  split.default(rep(paste0("gut", seq(1,ncol(pla_negative_gfp)/6)), each = 6)) %>% 
+  bind_rows(.id = "gut")
+
+new_names <- paste(rep(c("distance", "expression"), 3), rep(seq(1,3), each = 2), sep = "_")
+old_names <- colnames(pla_negative_gfp.wide[2:ncol(pla_negative_gfp.wide)])
+
+pla_negative_gfp.long <- pla_negative_gfp.wide %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "GFP") %>% 
+  relocate(genotype)
+
+pla_negative_rfp <- read_excel("PLA quantifications.xlsx", range = "C39:AD68") %>% select(matches("Distance|Gray_Value")) 
+
+pla_negative_rfp.wide <- pla_negative_rfp %>% 
+  split.default(rep(paste0("gut", seq(1,ncol(pla_negative_rfp)/6)), each = 6)) %>% 
+  bind_rows(.id = "gut")
+
+old_names <- colnames(pla_negative_rfp.wide[2:ncol(pla_negative_rfp.wide)])
+
+pla_negative_rfp.long <- pla_negative_rfp.wide %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "RFP") %>% 
+  relocate(genotype)
+
+pla_negative.long <- bind_rows(pla_negative_gfp.long, pla_negative_rfp.long) %>% 
+  filter(!is.na(distance))
+
+pla_positive_gfp <- read_excel("PLA quantifications.xlsx", range = "C75:AD104") %>% select(matches("Distance|Gray_Value")) 
+
+pla_positive_gfp.wide <- pla_positive_gfp %>% 
+  split.default(rep(paste0("gut", seq(1,ncol(pla_positive_gfp)/6)), each = 6)) %>% 
+  bind_rows(.id = "gut")
+
+old_names <- colnames(pla_positive_gfp.wide[2:ncol(pla_positive_gfp.wide)])
+
+pla_positive_gfp.long <- pla_positive_gfp.wide %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "GFP") %>% 
+  relocate(genotype)
+
+
+pla_positive_rfp <- read_excel("PLA quantifications.xlsx", range = "C107:AD136") %>% select(matches("Distance|Gray_Value")) 
+
+pla_positive_rfp.wide <- pla_positive_rfp %>% 
+  split.default(rep(paste0("gut", seq(1,ncol(pla_positive_rfp)/6)), each = 6)) %>% 
+  bind_rows(.id = "gut")
+
+old_names <- colnames(pla_positive_rfp.wide[2:ncol(pla_positive_rfp.wide)])
+
+pla_positive_rfp.long <- pla_positive_rfp.wide %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "RFP") %>% 
+  relocate(genotype)
+
+pla_positive.long <- bind_rows(pla_positive_gfp.long, pla_positive_rfp.long) %>% 
+  filter(!is.na(distance))
+
+```
+
+## Plot
+
+```{r plot-pla}
+
+pla_positive.long %>% 
+  mutate(title = "PLA positive") %>% 
+  bind_rows(pla_negative.long %>% mutate(title = "PLA negative")) %>% 
+  ggplot(aes(x=distance, y=expression, color=genotype)) + 
+  geom_point(alpha=0.5) +
+  geom_smooth() + 
+  scale_color_manual(values = line_colors[c(1,3,2)]) + 
+  theme(legend.position = "bottom") +
+  facet_grid(cols = vars(title))
+  
+```
+
+
+# Figure 4b
+
+## Prepare data
+
+```{r fz3-prepare-data}
+
+fz3_intestine_control <- read_excel("Fz3 quantification along intestine myots.xlsx", range = "G10:L6139") %>% select(matches("X|Y")) 
+
+old_names <- colnames(fz3_intestine_control)
+
+fz3_intestine_control.long <- fz3_intestine_control %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  mutate(gut = 1) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "control") %>% 
+  relocate(genotype)
+
+
+fz3_intestine_dcr_apc <- read_excel("Fz3 quantification along intestine myots.xlsx", range = "O10:T6102") %>% select(matches("X|Y")) 
+
+old_names <- colnames(fz3_intestine_dcr_apc)
+
+fz3_intestine_dcr_apc.long <- fz3_intestine_dcr_apc %>% 
+  rename_at(vars(old_names), function(x) new_names) %>% 
+  mutate(gut = 1) %>% 
+  pivot_longer(cols = !gut, cols_vary = "slowest", names_to = c(".value", "cell"), names_pattern = "(.*)_(.)") %>% 
+  mutate(genotype = "dcr, APC RNAi") %>% 
+  relocate(genotype)
+
+
+fz3_intestine.long <- bind_rows(fz3_intestine_control.long , fz3_intestine_dcr_apc.long) %>% 
+  filter(!is.na(distance))
+
+```
+
+## Plot
+
+```{r plot-fz3}
+
+fz3_intestine.long.scaled <- fz3_intestine.long %>% 
+  group_by(genotype, cell) %>% 
+  mutate(max_distance = max(distance)) %>% 
+  mutate(scaled_distance = distance/max_distance) %>% 
+  ungroup() 
+
+fz3_intestine.long.scaled %>% 
+  ggplot(aes(x=scaled_distance, y=expression, color=genotype)) + 
+  geom_point(alpha=0.2) +
+  geom_smooth() + 
+  scale_color_manual(values = line_colors[c(1,4)]) + 
+  xlab("scaled distance") +
+  theme(legend.position = "bottom") +
+  scale_x_reverse()
+
+```
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```
