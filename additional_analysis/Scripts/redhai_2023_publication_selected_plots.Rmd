@@ -3,7 +3,6 @@ title: "Redhai publication 2023 selected plots"
 author: "Erica Valentini"
 date: "19/12/2023"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: yes
@@ -11,6 +10,7 @@ output:
     toc_float:
       collapsed: no
     smooth_scroll: yes
+  pdf_document: default
   number_sections: no
   highlight: tango
   theme: default
@@ -49,7 +49,7 @@ theme_set(theme_cowplot())
 
 ```{r prepare_data_apc}
 
-screen_result_apc <- read_excel("raw_data/FINAL modifier screen apc .xlsx", range = "A3:T126")
+screen_result_apc <- read_excel("../raw_data/FINAL modifier screen apc .xlsx", range = "A3:T126")
 
 screen_result_apc_long <- screen_result_apc %>% 
   rename("gene_name"="...1") %>% 
@@ -89,7 +89,7 @@ screen_results_apc <- screen_result_apc_long %>%
 
 screen_results_apc
 
-ggsave(filename = "Graphics/screen_apc_results.pdf", plot = screen_results_apc, device = pdf, height = 18)
+ggsave(filename = "../Graphics/screen_apc_results.pdf", plot = screen_results_apc, device = pdf, height = 18)
 
 ```
 
@@ -99,7 +99,7 @@ ggsave(filename = "Graphics/screen_apc_results.pdf", plot = screen_results_apc, 
 
 ```{r expression-data-preparation}
 
-expression_data <- read_excel("raw_data/APC_data.xlsx", col_names = FALSE)
+expression_data <- read_excel("../raw_data/APC_data.xlsx", col_names = FALSE)
 expression_data <- expression_data %>%   
   select(where(~!all(is.na(.x)))) %>% 
   filter(!row_number() %in% c(1,2,3)) %>% 
@@ -138,7 +138,7 @@ expression_data_APC <- expression_data.long.scaled %>%
 
 expression_data_APC
 
-ggsave(filename = "Graphics/expression_data_APC.pdf", plot = expression_data_APC, device = pdf)
+ggsave(filename = "../Graphics/expression_data_APC.pdf", plot = expression_data_APC, device = pdf)
 
 ```
 
@@ -148,7 +148,7 @@ ggsave(filename = "Graphics/expression_data_APC.pdf", plot = expression_data_APC
 
 ```{r pla-prepare-data}
 
-pla_negative_gfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C6:AD35") %>% select(matches("Distance|Gray_Value")) 
+pla_negative_gfp <- read_excel("../raw_data/PLA quantifications.xlsx", range = "C6:AD35") %>% select(matches("Distance|Gray_Value")) 
 
 pla_negative_gfp.wide <- pla_negative_gfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_negative_gfp)/6)), each = 6)) %>% 
@@ -163,7 +163,7 @@ pla_negative_gfp.long <- pla_negative_gfp.wide %>%
   mutate(genotype = "GFP") %>% 
   relocate(genotype)
 
-pla_negative_rfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C39:AD68") %>% select(matches("Distance|Gray_Value")) 
+pla_negative_rfp <- read_excel("../raw_data/PLA quantifications.xlsx", range = "C39:AD68") %>% select(matches("Distance|Gray_Value")) 
 
 pla_negative_rfp.wide <- pla_negative_rfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_negative_rfp)/6)), each = 6)) %>% 
@@ -180,7 +180,7 @@ pla_negative_rfp.long <- pla_negative_rfp.wide %>%
 pla_negative.long <- bind_rows(pla_negative_gfp.long, pla_negative_rfp.long) %>% 
   filter(!is.na(distance))
 
-pla_positive_gfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C75:AD104") %>% select(matches("Distance|Gray_Value")) 
+pla_positive_gfp <- read_excel("../raw_data/PLA quantifications.xlsx", range = "C75:AD104") %>% select(matches("Distance|Gray_Value")) 
 
 pla_positive_gfp.wide <- pla_positive_gfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_positive_gfp)/6)), each = 6)) %>% 
@@ -195,7 +195,7 @@ pla_positive_gfp.long <- pla_positive_gfp.wide %>%
   relocate(genotype)
 
 
-pla_positive_rfp <- read_excel("raw_data/PLA quantifications.xlsx", range = "C107:AD136") %>% select(matches("Distance|Gray_Value")) 
+pla_positive_rfp <- read_excel("../raw_data/PLA quantifications.xlsx", range = "C107:AD136") %>% select(matches("Distance|Gray_Value")) 
 
 pla_positive_rfp.wide <- pla_positive_rfp %>% 
   split.default(rep(paste0("gut", seq(1,ncol(pla_positive_rfp)/6)), each = 6)) %>% 
@@ -230,7 +230,7 @@ pla_plot <- pla_positive.long %>%
 
 pla_plot
 
-ggsave(filename = "Graphics/pla_plot.pdf", plot = pla_plot, device = pdf)
+ggsave(filename = "../Graphics/pla_plot.pdf", plot = pla_plot, device = pdf)
   
 ```
 
@@ -241,7 +241,7 @@ ggsave(filename = "Graphics/pla_plot.pdf", plot = pla_plot, device = pdf)
 
 ```{r fz3-prepare-data}
 
-fz3_intestine_control <- read_excel("raw_data/Fz3 quantification along intestine myots.xlsx", range = "G10:L6139") %>% select(matches("X|Y")) 
+fz3_intestine_control <- read_excel("../raw_data/Fz3 quantification along intestine myots.xlsx", range = "G10:L6139") %>% select(matches("X|Y")) 
 
 old_names <- colnames(fz3_intestine_control)
 
@@ -253,7 +253,7 @@ fz3_intestine_control.long <- fz3_intestine_control %>%
   relocate(genotype)
 
 
-fz3_intestine_dcr_apc <- read_excel("raw_data/Fz3 quantification along intestine myots.xlsx", range = "O10:T6102") %>% select(matches("X|Y")) 
+fz3_intestine_dcr_apc <- read_excel("../raw_data/Fz3 quantification along intestine myots.xlsx", range = "O10:T6102") %>% select(matches("X|Y")) 
 
 old_names <- colnames(fz3_intestine_dcr_apc)
 
@@ -291,7 +291,7 @@ fz3_plot <- fz3_intestine.long.scaled %>%
 
 fz3_plot
 
-ggsave(filename = "Graphics/fz3_plot.pdf", plot = fz3_plot, device = pdf)
+ggsave(filename = "../Graphics/fz3_plot.pdf", plot = fz3_plot, device = pdf)
 
 ```
 
