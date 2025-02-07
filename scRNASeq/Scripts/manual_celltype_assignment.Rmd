@@ -1,0 +1,690 @@
+---
+title: "Manual_celltype_assignment"
+author: "Tuemay Capraz"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+
+```{r}
+library(Seurat)
+
+library(SingleR)
+library(patchwork)
+library(circlize)
+library(ComplexHeatmap)
+library(here)
+library(dplyr)
+library(stringr)
+set.seed(123)
+```
+
+```{r}
+marker_heatmap <- function(seurat, markers, celltype, group.by, cap_value=NULL){
+  library(ComplexHeatmap)
+  library(circlize)
+  # plot a heatmap, where each column is one cell! The cells are grouped and split according to the cluster they are from 
+  
+  ordered_index <- order(seurat@meta.data[[group.by]])
+  c_split <- sort(seurat@meta.data[[group.by]])
+  
+  if (!all(markers %in% rownames(seurat@assays$RNA))){
+    mising_genes <- paste(markers[!markers %in% rownames(seurat@assays$RNA)], sep=", ")
+    celltype <- celltype[markers %in% rownames(seurat@assays$RNA)]
+    markers <- markers[markers %in% rownames(seurat@assays$RNA)]
+    print(str_interp("Not all markers occur in the data matrix of the seurat object. Specifically, ${mising_genes} are missing. Removing it and continuing"))
+  }
+  
+  # get counts and perform gene wise scaling
+  cnts_scaled <- as.matrix(seurat@assays$RNA$counts[markers, ordered_index]) %>% 
+    t() %>% 
+    scale() %>% 
+    t()
+  
+  
+  
+  if(!is.null(cap_value)){
+    message(str_interp("Zscores > |${cap_value}| are set to ${cap_value} (or -${cap_value})"))
+    changed_values <- sum(cnts_scaled>cap_value) + sum(cnts_scaled < -cap_value)
+    cnts_scaled[cnts_scaled>cap_value] = cap_value 
+    cnts_scaled[cnts_scaled < -cap_value] = -cap_value 
+    message(str_interp("This was the case for ${changed_values} values"))
+    col_fun = colorRamp2(c(-cap_value, 0, cap_value), c("blue", "white", "red"))
+    
+  } else {col_fun = colorRamp2(breaks=c(min(cnts_scaled, na.rm=T), mean(cnts_scaled, na.rm=T), max(cnts_scaled, na.rm=T)),
+                     colors=c("blue", "white", "red"))}
+
+  p <- Heatmap(cnts_scaled,
+               cluster_rows = F, 
+               cluster_columns = F, 
+               show_row_names = T, 
+               show_column_names = F,
+               column_split = c_split,
+               row_split = celltype,
+               name="Z-score",
+               col=col_fun,
+               row_gap = unit(4, "mm"),
+               border = "black",
+               column_title_gp = grid::gpar(fontsize = 8, fontface="bold"),
+               column_title_rot =90,
+               row_names_gp = grid::gpar(fontsize = 10, fontface="bold"),
+               use_raster = F,
+               heatmap_legend_param = list(at = c(-cap_value, 0, cap_value)))
+  p <- ggplotify::as.ggplot(p)
+  
+  return(p)
+  
+}
+```
+
+
+
+# Manually rename unknown cell types
+
+
+```{r}
+fbnr <- read_rds("../raw_data/fbnr_seurat_integrated.rds")
+ctrl <- read_rds("../raw_data/ctrl_seurat_integrated.rds")
+
+fbnr$flyatlas_annotation_clean_noLFC[is.na(fbnr$flyatlas_annotation_clean_noLFC)] <- "unk"
+ctrl$flyatlas_annotation_clean_noLFC[is.na(ctrl$flyatlas_annotation_clean_noLFC)] <- "unk"
+
+DefaultAssay(fbnr) <- "RNA"
+DefaultAssay(ctrl) <- "RNA"
+
+fbnr_unk <- subset(fbnr, subset = flyatlas_annotation_clean_noLFC == 'unk' )
+fbnr_unk <-  FindVariableFeatures(fbnr_unk)
+fbnr_unk <- ScaleData(fbnr_unk, verbose = F) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+
+
+ctrl_unk <- subset(ctrl, subset = flyatlas_annotation_clean_noLFC == 'unk')
+ctrl_unk <-  FindVariableFeatures(ctrl_unk)
+ctrl_unk <- ScaleData(ctrl_unk, verbose = F) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+```
+
+
+```{r}
+marker_table <- data.frame(gene=c("lab", "betaTry", "epsilonTry", "alphaTry", 
+                             "nub", "Myo31DF",
+                             "esg", "N", "E(spl)mbeta-HLH", "klu",
+                             "Dl",
+                             "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+                             "pros", "7B2", "IA-2", 
+                             "PGRP-SC1a", "PGRP-SC1b","Jon65Ai", "Jon65Aii",
+                             "lambdaTry", "LManVI", "iotaTry", "etaTry", "zetaTry", 
+                             "thetaTry", "Npc2f",
+                             "Smvt","ct"),
+                      celltype=c("mEC", "aEC", "aEC", "aEC", 
+                                 "dEC", "dEC", 
+                                 "EB", "EB", "EB", "EB", 
+                                 "ISC",
+                                 "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells", 
+                                 "EE", "EE", "EE", 
+                                 "LFC", "LFC", "LFC", "LFC", "LFC",
+                                 "pEC","pEC","pEC","pEC",
+                                 "mEC", "mEC",
+                                 "MT","MT"))
+
+Idents(fbnr_unk) <- factor(fbnr_unk$integrated_snn_res.0.3)
+
+fbnr_unk$unk_renamed<- as.character(fbnr_unk$integrated_snn_res.0.3)
+fbnr_unk$unk_renamed[names(fbnr_unk$orig.ident)[fbnr_unk$unk_renamed %in% c(3,4)]] <- "aEC"
+fbnr_unk$unk_renamed[names(fbnr_unk$orig.ident)[fbnr_unk$unk_renamed == 6]] <- "Copper"
+fbnr_unk$unk_renamed[names(fbnr_unk$orig.ident)[fbnr_unk$unk_renamed == 8]] <- "EE"
+fbnr_unk$unk_renamed[names(fbnr_unk$orig.ident)[fbnr_unk$unk_renamed == 5]] <- "ISC"
+
+marker_heatmap(seurat = fbnr_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+Idents(fbnr_unk) <- factor(fbnr_unk$unk_renamed)
+marker_heatmap(seurat = fbnr_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+Idents(ctrl_unk) <- factor(ctrl_unk$integrated_snn_res.0.3, levels = as.character(0:14))
+marker_heatmap(seurat = ctrl_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+ctrl_unk$unk_renamed <- as.character(ctrl_unk$integrated_snn_res.0.3)
+ctrl_unk$unk_renamed[names(ctrl_unk$orig.ident)[ctrl_unk$unk_renamed %in% c(3,6)]] <- "aEC"
+ctrl_unk$unk_renamed[names(ctrl_unk$orig.ident)[ctrl_unk$unk_renamed %in% c(0,1)]] <- "EB"
+ctrl_unk$unk_renamed[names(ctrl_unk$orig.ident)[ctrl_unk$unk_renamed == 9]] <- "Copper"
+ctrl_unk$unk_renamed[names(ctrl_unk$orig.ident)[ctrl_unk$unk_renamed %in% c(5,7)]] <- "pEC"
+ctrl_unk$unk_renamed[names(ctrl_unk$orig.ident)[ctrl_unk$unk_renamed == 11]] <- "EE"
+
+Idents(ctrl_unk) <- factor(ctrl_unk$unk_renamed)
+marker_heatmap(seurat = ctrl_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+```
+
+```{r}
+fbnr$flyatlas_annotation_clean_noLFC[names(fbnr_unk$orig.ident)[fbnr_unk$integrated_snn_res.0.3 %in% c(3,4)]] <- "aEC"
+fbnr$flyatlas_annotation_clean_noLFC[names(fbnr_unk$orig.ident)[fbnr_unk$integrated_snn_res.0.3 == 6]] <- "Copper"
+fbnr$flyatlas_annotation_clean_noLFC[names(fbnr_unk$orig.ident)[fbnr_unk$integrated_snn_res.0.3 == 8]] <- "EE"
+fbnr$flyatlas_annotation_clean_noLFC[names(fbnr_unk$orig.ident)[fbnr_unk$integrated_snn_res.0.3 == 5]] <- "ISC"
+
+DimPlot(fbnr, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_fbnr <- SplitObject(fbnr, "orig.ident")
+
+ds0017f <- readRDS("../raw_data/DS-0017F_processed_srt.rds")
+ds00189 <- readRDS("../raw_data/DS-00189_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_fbnr$`DS-0017F`$orig.ident), "_"), `[[`, 1) == names(ds0017f$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_fbnr$`DS-00189`$orig.ident), "_"), `[[`, 1) == names(ds00189$orig.ident)))
+ds0017f$flyatlas_annotation_clean_noLFC <- annotated_fbnr$`DS-0017F`$flyatlas_annotation_clean_noLFC
+ds00189$flyatlas_annotation_clean_noLFC <- annotated_fbnr$`DS-00189`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds0017f,"../raw_data/DS-0017F_processed_srt.rds")
+write_rds(ds00189,"../raw_data/DS-00189_processed_srt.rds")
+
+```
+
+```{r}
+ctrl$flyatlas_annotation_clean_noLFC[names(ctrl_unk$orig.ident)[ctrl_unk$integrated_snn_res.0.3 %in% c(3,6)]] <- "aEC"
+ctrl$flyatlas_annotation_clean_noLFC[names(ctrl_unk$orig.ident)[ctrl_unk$integrated_snn_res.0.3 %in% c(0,1)]] <- "EB"
+ctrl$flyatlas_annotation_clean_noLFC[names(ctrl_unk$orig.ident)[ctrl_unk$integrated_snn_res.0.3 == 9]] <- "Copper"
+ctrl$flyatlas_annotation_clean_noLFC[names(ctrl_unk$orig.ident)[ctrl_unk$integrated_snn_res.0.3 %in% c(5,7)]] <- "pEC"
+ctrl$flyatlas_annotation_clean_noLFC[names(ctrl_unk$orig.ident)[ctrl_unk$integrated_snn_res.0.3 == 11]] <- "EE"
+
+DimPlot(ctrl, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_ctrl <- SplitObject(ctrl, "orig.ident")
+
+ds0017D <- readRDS("../raw_data/DS-0017D_processed_srt.rds")
+ds00188 <- readRDS("../raw_data/DS-00188_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_ctrl$`DS-0017D`$orig.ident), "_"), `[[`, 1) == names(ds0017D$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_ctrl$`DS-00188`$orig.ident), "_"), `[[`, 1) == names(ds00188$orig.ident)))
+ds0017D$flyatlas_annotation_clean_noLFC <- annotated_ctrl$`DS-0017D`$flyatlas_annotation_clean_noLFC
+ds00188$flyatlas_annotation_clean_noLFC <- annotated_ctrl$`DS-00188`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds0017D,"../raw_data/DS-0017D_processed_srt.rds")
+write_rds(ds00188,"../raw_data/DS-00188_processed_srt.rds")
+
+```
+
+```{r}
+marker_table <- data.frame(gene=c("lab", "betaTry", "epsilonTry", "alphaTry", 
+                             "nub", "Myo31DF",
+                             "esg", "N", "E(spl)mbeta-HLH", "klu",
+                             "Dl",
+                             "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+                             "pros", "7B2", "IA-2", 
+                             
+                              "LManVI", "iotaTry", "etaTry", "zetaTry", 
+                             
+                             "Smvt","ct"),
+                      celltype=c("mEC", "aEC", "aEC", "aEC", 
+                                 "dEC", "dEC", 
+                                 "EB", "EB", "EB", "EB", 
+                                 "ISC",
+                                 "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells", 
+                                 "EE", "EE", "EE", 
+                                 
+                                 "pEC","pEC","pEC","pEC",
+                                 
+                                 "MT","MT"))
+ctrl <- read_rds( "../raw_data/ctrl_seurat_integrated.rds")
+fbnr <- read_rds( "../raw_data/fbnr_seurat_integrated.rds")
+
+merged <- merge(ctrl,fbnr)
+
+Idents(merged ) <- factor(merged$flyatlas_annotation_clean_noLFC)
+marker_heatmap(seurat = merged ,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "flyatlas_annotation_clean_noLFC",
+               cap_value = 2)
+
+```
+
+## DN and RNAi
+
+```{r}
+DN <- read_rds("../raw_data/DN_seurat_integrated.rds")
+RNAi <- read_rds("../raw_data/RNAi_seurat_integrated.rds")
+
+DN$flyatlas_annotation_clean_noLFC[is.na(DN$flyatlas_annotation_clean_noLFC)] <- "unk"
+RNAi$flyatlas_annotation_clean_noLFC[is.na(RNAi$flyatlas_annotation_clean_noLFC)] <- "unk"
+
+DefaultAssay(DN) <- "RNA"
+DefaultAssay(RNAi) <- "RNA"
+
+DN_unk <- subset(DN, subset = flyatlas_annotation_clean_noLFC == 'unk' )
+DN_unk <-  FindVariableFeatures(DN_unk)
+DN_unk <- ScaleData(DN_unk, verbose = F) %>% 
+  RunPRNAi(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+
+
+RNAi_unk <- subset(RNAi, subset = flyatlas_annotation_clean_noLFC == 'unk')
+RNAi_unk <-  FindVariableFeatures(RNAi_unk)
+RNAi_unk <- ScaleData(RNAi_unk, verbose = F) %>% 
+  RunPRNAi(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+```
+
+```{r}
+marker_table <- data.frame(gene=c("lab", "betaTry", "epsilonTry", "alphaTry", 
+                             "nub", "Myo31DF",
+                             "esg", "N", "E(spl)mbeta-HLH", "klu",
+                             "Dl",
+                             "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+                             "pros", "7B2", "IA-2", 
+                             "PGRP-SC1a", "PGRP-SC1b","Jon65Ai", "Jon65Aii",
+                             "lambdaTry", "LManVI", "iotaTry", "etaTry", "zetaTry", 
+                             "thetaTry", "Npc2f",
+                             "Smvt","ct"),
+                      celltype=c("mEC", "aEC", "aEC", "aEC", 
+                                 "dEC", "dEC", 
+                                 "EB", "EB", "EB", "EB", 
+                                 "ISC",
+                                 "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells", 
+                                 "EE", "EE", "EE", 
+                                 "LFC", "LFC", "LFC", "LFC", "LFC",
+                                 "pEC","pEC","pEC","pEC",
+                                 "mEC", "mEC",
+                                 "MT","MT"))
+
+Idents(DN_unk) <- factor(DN_unk$integrated_snn_res.0.3)
+
+DN_unk$unk_renamed<- as.character(DN_unk$integrated_snn_res.0.3)
+marker_heatmap(seurat = DN_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+DN_unk$unk_renamed[names(DN_unk$orig.ident)[DN_unk$unk_renamed == 5]] <- "aEC"
+DN_unk$unk_renamed[names(DN_unk$orig.ident)[DN_unk$unk_renamed %in% c(0,6)]] <- "pEC"
+DN_unk$unk_renamed[names(DN_unk$orig.ident)[DN_unk$unk_renamed == 9]] <- "EE"
+DN_unk$unk_renamed[names(DN_unk$orig.ident)[DN_unk$unk_renamed %in% c(1,2,3,4)]] <- "EB"
+
+Idents(DN_unk) <- factor(DN_unk$unk_renamed)
+marker_heatmap(seurat = DN_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+
+
+Idents(RNAi_unk) <- factor(RNAi_unk$integrated_snn_res.0.3)
+marker_heatmap(seurat = RNAi_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+RNAi_unk$unk_renamed <- as.character(RNAi_unk$integrated_snn_res.0.3)
+
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed == 3]] <- "aEC"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed %in% c(0,1,2,7)]] <- "EB"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed == 9]] <- "Copper"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed %in% c(4,5)]] <- "pEC"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed == 9]] <- "EE"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed == 10]] <- "dEC"
+RNAi_unk$unk_renamed[names(RNAi_unk$orig.ident)[RNAi_unk$unk_renamed == 14]] <- "Copper"
+
+Idents(RNAi_unk) <- factor(RNAi_unk$unk_renamed)
+marker_heatmap(seurat = RNAi_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+```
+
+## write DN
+
+```{r}
+DN$flyatlas_annotation_clean_noLFC[names(DN_unk$orig.ident)[DN_unk$integrated_snn_res.0.3 == 5]] <- "aEC"
+DN$flyatlas_annotation_clean_noLFC[names(DN_unk$orig.ident)[DN_unk$integrated_snn_res.0.3 %in% c(0,6)]] <- "pEC"
+DN$flyatlas_annotation_clean_noLFC[names(DN_unk$orig.ident)[DN_unk$integrated_snn_res.0.3 == 9]] <- "EE"
+DN$flyatlas_annotation_clean_noLFC[names(DN_unk$orig.ident)[DN_unk$integrated_snn_res.0.3 %in% c(1,2,3,4)]] <- "EB"
+
+
+DimPlot(DN, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_DN <- SplitObject(DN, "orig.ident")
+
+ds00181 <- readRDS("../raw_data/DS-00181_processed_srt.rds")
+ds0018A <- readRDS("../raw_data/DS-0018A_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_DN$`DS-00181`$orig.ident), "_"), `[[`, 1) == names(ds00181$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_DN$`DS-0018A`$orig.ident), "_"), `[[`, 1) == names(ds0018A$orig.ident)))
+ds00181$flyatlas_annotation_clean_noLFC <- annotated_DN$`DS-00181`$flyatlas_annotation_clean_noLFC
+ds0018A$flyatlas_annotation_clean_noLFC <- annotated_DN$`DS-0018A`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds00181,"../raw_data/DS-00181_processed_srt.rds")
+write_rds(ds0018A,"../raw_data/DS-0018A_processed_srt.rds")
+
+```
+
+## write RNAi
+
+```{r}
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 == 3]] <- "aEC"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 %in% c(0,1,2,7)]] <- "EB"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 == 9]] <- "Copper"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 %in% c(4,5)]] <- "pEC"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 == 9]] <- "EE"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 == 10]] <- "dEC"
+RNAi$flyatlas_annotation_clean_noLFC[names(RNAi_unk$orig.ident)[RNAi_unk$integrated_snn_res.0.3 == 14]] <- "Copper"
+
+
+DimPlot(RNAi, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_RNAi <- SplitObject(RNAi, "orig.ident")
+
+ds00182 <- readRDS("../raw_data/DS-00182_processed_srt.rds")
+ds0018B <- readRDS("../raw_data/DS-0018B_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_RNAi$`DS-00182`$orig.ident), "_"), `[[`, 1) == names(ds00182$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_RNAi$`DS-0018B`$orig.ident), "_"), `[[`, 1) == names(ds0018B$orig.ident)))
+ds00182$flyatlas_annotation_clean_noLFC <- annotated_RNAi$`DS-00182`$flyatlas_annotation_clean_noLFC
+ds0018B$flyatlas_annotation_clean_noLFC <- annotated_RNAi$`DS-0018B`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds00182,"../data/DS-00182_processed_srt.rds")
+write_rds(ds0018B,"../data/DS-0018B_processed_srt.rds")
+
+```
+
+
+## W and CA
+
+```{r}
+W <- readRDS("../raw_data/W_seurat_integrated.rds")
+CA <- readRDS("../raw_data/CA_seurat_integrated.rds")
+
+W$flyatlas_annotation_clean_noLFC[is.na(W$flyatlas_annotation_clean_noLFC)] <- "unk"
+CA$flyatlas_annotation_clean_noLFC[is.na(CA$flyatlas_annotation_clean_noLFC)] <- "unk"
+
+DefaultAssay(W) <- "RNA"
+DefaultAssay(CA) <- "RNA"
+
+W_unk <- subset(W, subset = flyatlas_annotation_clean_noLFC == 'unk' )
+W_unk <-  FindVariableFeatures(W_unk)
+W_unk <- ScaleData(W_unk, verbose = F) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+
+
+CA_unk <- subset(CA, subset = flyatlas_annotation_clean_noLFC == 'unk')
+CA_unk <-  FindVariableFeatures(CA_unk)
+CA_unk <- ScaleData(CA_unk, verbose = F) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+```
+
+```{r}
+marker_table <- data.frame(gene=c("lab", "betaTry", "epsilonTry", "alphaTry", 
+                             "nub", "Myo31DF",
+                             "esg", "N", "E(spl)mbeta-HLH", "klu",
+                             "Dl",
+                             "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+                             "pros", "7B2", "IA-2", 
+                             "PGRP-SC1a", "PGRP-SC1b","Jon65Ai", "Jon65Aii",
+                             "lambdaTry", "LManVI", "iotaTry", "etaTry", "zetaTry", 
+                             "thetaTry", "Npc2f",
+                             "Smvt","ct"),
+                      celltype=c("mEC", "aEC", "aEC", "aEC", 
+                                 "dEC", "dEC", 
+                                 "EB", "EB", "EB", "EB", 
+                                 "ISC",
+                                 "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells", 
+                                 "EE", "EE", "EE", 
+                                 "LFC", "LFC", "LFC", "LFC", "LFC",
+                                 "pEC","pEC","pEC","pEC",
+                                 "mEC", "mEC",
+                                 "MT","MT"))
+
+Idents(W_unk) <- factor(W_unk$integrated_snn_res.0.3)
+
+W_unk$unk_renamed<- as.character(W_unk$integrated_snn_res.0.3)
+marker_heatmap(seurat = W_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+W_unk$unk_renamed[names(W_unk$orig.ident)[W_unk$unk_renamed == 2]] <- "aEC"
+W_unk$unk_renamed[names(W_unk$orig.ident)[W_unk$unk_renamed %in% c(5,6)]] <- "pEC"
+W_unk$unk_renamed[names(W_unk$orig.ident)[W_unk$unk_renamed %in% c(0,1,4)]] <- "EB"
+W_unk$unk_renamed[names(W_unk$orig.ident)[W_unk$unk_renamed == 11]] <- "EE"
+
+Idents(W_unk) <- factor(W_unk$unk_renamed)
+marker_heatmap(seurat = W_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+
+
+Idents(CA_unk) <- factor(CA_unk$integrated_snn_res.0.3)
+marker_heatmap(seurat = CA_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "integrated_snn_res.0.3",
+               cap_value = 2)
+
+CA_unk$unk_renamed <- as.character(CA_unk$integrated_snn_res.0.3)
+
+CA_unk$unk_renamed[names(CA_unk$orig.ident)[CA_unk$unk_renamed == 2]] <- "aEC"
+CA_unk$unk_renamed[names(CA_unk$orig.ident)[CA_unk$unk_renamed ==0]] <- "EB"
+CA_unk$unk_renamed[names(CA_unk$orig.ident)[CA_unk$unk_renamed == 10]] <- "Copper"
+CA_unk$unk_renamed[names(CA_unk$orig.ident)[CA_unk$unk_renamed %in% c(1,8)]] <- "pEC"
+CA_unk$unk_renamed[names(CA_unk$orig.ident)[CA_unk$unk_renamed == 9]] <- "EE"
+
+Idents(CA_unk) <- factor(CA_unk$unk_renamed)
+marker_heatmap(seurat = CA_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+```
+
+## write W
+
+```{r}
+W$flyatlas_annotation_clean_noLFC[names(W_unk$orig.ident)[W_unk$integrated_snn_res.0.3 == 2]] <- "aEC"
+W$flyatlas_annotation_clean_noLFC[names(W_unk$orig.ident)[W_unk$integrated_snn_res.0.3 %in% c(5,6)]] <- "pEC"
+W$flyatlas_annotation_clean_noLFC[names(W_unk$orig.ident)[W_unk$integrated_snn_res.0.3 %in% c(0,1,4)]] <- "EB"
+W$flyatlas_annotation_clean_noLFC[names(W_unk$orig.ident)[W_unk$integrated_snn_res.0.3== 11]] <- "EE"
+
+
+DimPlot(W, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_W <- SplitObject(W, "orig.ident")
+
+ds00183 <- readRDS("../raw_data/DS-00183_processed_srt.rds")
+ds0018C <- readRDS("../raw_data/DS-0018C_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_W$`DS-00183`$orig.ident), "_"), `[[`, 1) == names(ds00183$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_W$`DS-0018C`$orig.ident), "_"), `[[`, 1) == names(ds0018C$orig.ident)))
+ds00183$flyatlas_annotation_clean_noLFC <- annotated_W$`DS-00183`$flyatlas_annotation_clean_noLFC
+ds0018C$flyatlas_annotation_clean_noLFC <- annotated_W$`DS-0018C`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds00183,"../raw_data/DS-00183_processed_srt.rds")
+write_rds(ds0018C,"../raw_data/DS-0018C_processed_srt.rds")
+
+```
+
+## write CA
+
+```{r}
+CA$flyatlas_annotation_clean_noLFC[names(CA_unk$orig.ident)[CA_unk$integrated_snn_res.0.3== 2]] <- "aEC"
+CA$flyatlas_annotation_clean_noLFC[names(CA_unk$orig.ident)[CA_unk$integrated_snn_res.0.3  ==0]] <- "EB"
+CA$flyatlas_annotation_clean_noLFC[names(CA_unk$orig.ident)[CA_unk$integrated_snn_res.0.3 == 10]] <- "Copper"
+CA$flyatlas_annotation_clean_noLFC[names(CA_unk$orig.ident)[CA_unk$integrated_snn_res.0.3 %in% c(1,8)]] <- "pEC"
+CA$flyatlas_annotation_clean_noLFC[names(CA_unk$orig.ident)[CA_unk$integrated_snn_res.0.3 == 9]] <- "EE"
+
+
+
+
+DimPlot(CA, group.by="flyatlas_annotation_clean_noLFC")
+
+annotated_CA <- SplitObject(CA, "orig.ident")
+
+ds00180 <- readRDS("../raw_data/DS-00180_processed_srt.rds")
+ds0018D <- readRDS("../raw_data/DS-0018D_processed_srt.rds")
+stopifnot(all(sapply(str_split(names(annotated_CA$`DS-00180`$orig.ident), "_"), `[[`, 1) == names(ds00180$orig.ident)))
+stopifnot(all(sapply(str_split(names(annotated_CA$`DS-0018D`$orig.ident), "_"), `[[`, 1) == names(ds0018D$orig.ident)))
+ds00180$flyatlas_annotation_clean_noLFC <- annotated_CA$`DS-00180`$flyatlas_annotation_clean_noLFC
+ds0018D$flyatlas_annotation_clean_noLFC <- annotated_CA$`DS-0018D`$flyatlas_annotation_clean_noLFC
+
+
+
+write_rds(ds00180,"../raw_data/DS-00180_processed_srt.rds")
+write_rds(ds0018D,"../raw_data/DS-0018D_processed_srt.rds")
+
+```
+
+## Arm.CA
+
+```{r}
+arm_CA <- readRDS("../raw_data/DS-0018E_processed_srt.rds")
+arm_CA <- arm_CA$srt
+arm_CA$flyatlas_annotation_clean_noLFC[is.na(arm_CA$flyatlas_annotation_clean_noLFC)] <- "unk"
+
+DefaultAssay(arm_CA) <- "RNA"
+
+
+
+arm_CA_unk <- subset(arm_CA, subset = flyatlas_annotation_clean_noLFC == 'unk')
+arm_CA_unk <-  FindVariableFeatures(arm_CA_unk)
+arm_CA_unk <- ScaleData(arm_CA_unk, verbose = F) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  RunTSNE(., reduction = "pca", dims = 1:20, verbose = F) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.4, 0.5, 0.6, 0.7 ,0.8))
+```
+
+```{r}
+marker_table <- data.frame(gene=c("lab", "betaTry", "epsilonTry", "alphaTry", 
+                             "nub", "Myo31DF",
+                             "esg", "N", "E(spl)mbeta-HLH", "klu",
+                             "Dl",
+                             "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+                             "pros", "7B2", "IA-2", 
+                             "PGRP-SC1a", "PGRP-SC1b","Jon65Ai", "Jon65Aii",
+                             "lambdaTry", "LManVI", "iotaTry", "etaTry", "zetaTry", 
+                             "thetaTry", "Npc2f",
+                             "Smvt","ct"),
+                      celltype=c("mEC", "aEC", "aEC", "aEC", 
+                                 "dEC", "dEC", 
+                                 "EB", "EB", "EB", "EB", 
+                                 "ISC",
+                                 "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells", 
+                                 "EE", "EE", "EE", 
+                                 "LFC", "LFC", "LFC", "LFC", "LFC",
+                                 "pEC","pEC","pEC","pEC",
+                                 "mEC", "mEC",
+                                 "MT","MT"))
+
+
+
+Idents(arm_CA_unk) <- factor(arm_CA_unk$RNA_snn_res.0.3)
+marker_heatmap(seurat = arm_CA_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "RNA_snn_res.0.8",
+               cap_value = 2)
+
+arm_CA_unk$unk_renamed <- as.character(arm_CA_unk$RNA_snn_res.0.3)
+
+arm_CA_unk$unk_renamed[names(arm_CA_unk$orig.ident)[arm_CA_unk$unk_renamed == 0]] <- "aEC"
+arm_CA_unk$unk_renamed[names(arm_CA_unk$orig.ident)[arm_CA_unk$unk_renamed ==2]] <- "ISC"
+arm_CA_unk$unk_renamed[names(arm_CA_unk$orig.ident)[arm_CA_unk$unk_renamed == 4]] <- "Copper"
+arm_CA_unk$unk_renamed[names(arm_CA_unk$orig.ident)[arm_CA_unk$unk_renamed %in% c(1,3,5,6)]] <- "pEC"
+arm_CA_unk$unk_renamed[names(arm_CA_unk$orig.ident)[arm_CA_unk$unk_renamed == 7]] <- "dEC"
+
+Idents(arm_CA_unk) <- factor(arm_CA_unk$unk_renamed)
+marker_heatmap(seurat = arm_CA_unk,
+               markers = marker_table$gene,
+               celltype = marker_table$celltype,
+               group.by = "unk_renamed",
+               cap_value = 2)
+
+```
+
+
+
+## write Arm.CA
+
+```{r}
+arm_CA$flyatlas_annotation_clean_noLFC[names(arm_CA_unk$orig.ident)[arm_CA_unk$RNA_snn_res.0.3== 0]] <- "aEC"
+arm_CA$flyatlas_annotation_clean_noLFC[names(arm_CA_unk$orig.ident)[arm_CA_unk$RNA_snn_res.0.3  ==2]] <- "ISC"
+arm_CA$flyatlas_annotation_clean_noLFC[names(arm_CA_unk$orig.ident)[arm_CA_unk$RNA_snn_res.0.3 == 4]] <- "Copper"
+arm_CA$flyatlas_annotation_clean_noLFC[names(arm_CA_unk$orig.ident)[arm_CA_unk$RNA_snn_res.0.3 %in% c(1,3,5,6)]] <- "pEC"
+arm_CA$flyatlas_annotation_clean_noLFC[names(arm_CA_unk$orig.ident)[arm_CA_unk$RNA_snn_res.0.3 == 7]] <- "dEC"
+
+
+
+
+DimPlot(arm_CA, group.by="flyatlas_annotation_clean_noLFC")
+
+
+write_rds(arm_CA,glue::glue("../raw_data/DS-0018E_processed_srt.rds"))
+
+```
+
+
+```{r, echo=T, message=T, error=T}
+sessionInfo()
+```

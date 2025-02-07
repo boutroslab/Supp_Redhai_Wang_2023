@@ -1,0 +1,107 @@
+---
+title: "predict_celltypes"
+author: "Tümay Capraz"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  BiocStyle::html_document:
+    css: huber.css
+    toc: yes
+    toc_float: yes
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(BiocParallel)
+library(BiocNeighbors)
+library(Matrix)
+library(data.table)
+library(biomaRt)
+library(pbapply)
+library(pbmcapply)
+library(SingleR)
+library(scran)
+
+```
+# Introduction
+We use `SingleR` to predict the cell types data. For reference, we are using the midgut from the [Fly Cell Atlas](https://www.science.org/doi/10.1126/science.abk2432). 
+
+# load flycell atlas reference
+
+```{r}
+# load flybase atlas
+flyatlas_gut <- readRDS("../raw_data/flyatlas_reference.rds")
+
+
+```
+
+
+# load query samples and predict cell types
+
+```{r}
+
+# DECODE sample IDs of interest
+decode_ids <- c( "DS-0017D", "DS-0017F", "DS-00180", "DS-00183", "DS-00182","DS-00181",
+                 "DS-00188", "DS-00189","DS-0018D", "DS-0018C",  "DS-0018B", "DS-0018A", "DS-0018E")
+
+conditions <- c(rep(c("Control", "FBNR", "CA", "W", "RNAi", "DN"), times = 2), "arm_CA")
+batches <- c(rep(c("TX32", "TX34"), each = 6), "TX34")               
+
+
+
+# load objects
+query_samples <- lapply(setNames(nm=decode_ids), function(id) {
+  readRDS(glue::glue("../raw_data/{id}_processed_srt.rds"))
+})
+
+query_samples <- lapply(query_samples, function(srt){
+  labels_flyatlas_annotations <- SingleR::SingleR(test=assay(as.SingleCellExperiment(srt$srt), "logcounts"),
+                  ref =assay(flyatlas_gut, "logcounts"),
+                  labels = flyatlas_gut$annotation,
+                  de.method="wilcox")
+
+  # make shorter names
+  labels_flyatlas_annotations$pruned.labels <- case_when(
+    labels_flyatlas_annotations$pruned.labels == "enteroblast"~ "EB",
+    labels_flyatlas_annotations$pruned.labels == "enterocyte of anterior adult midgut epithelium"~ "aEC",
+    labels_flyatlas_annotations$pruned.labels == "midgut large flat cell"~ "LFC",
+    labels_flyatlas_annotations$pruned.labels == "intestinal stem cell"~ "ISC",
+    labels_flyatlas_annotations$pruned.labels == "adult differentiating enterocyte"~ "dEC",
+    labels_flyatlas_annotations$pruned.labels == "enterocyte of posterior adult midgut epithelium" ~ "pEC",
+    labels_flyatlas_annotations$pruned.labels == "adult Malpighian tubule" ~ "Malpighian tubule",
+    labels_flyatlas_annotations$pruned.labels == "enteroendocrine cell" ~ "EE",
+    labels_flyatlas_annotations$pruned.labels == "adult midgut enterocyte" ~ "EC",
+    T~labels_flyatlas_annotations$pruned.labels
+  )
+
+  srt$srt$flyatlas_annotation_clean_noLFC <- labels_flyatlas_annotations$pruned.labels
+  srt
+})
+
+# rename unexpectec cell types to unk
+drop_from_atlas <- c("cardia_1", "cardia_2", "crop", "crop_visceral_muscle",  "VM", "male_accessory_gland", "midgut_hindgut_hybrid_zone", "pylorus", "fat_body", "muscle", "antimicrobial_peptide_producing_cell", "unannotated", "LFC")
+for (id in names(query_samples)){
+  for (i in drop_from_atlas){
+  query_samples[[id]]$srt$flyatlas_annotation_clean_noLFC[query_samples[[id]]$srt$flyatlas_annotation_clean_noLFC==i] <- "unk"
+}
+}
+
+
+```
+
+# save samples with predicted cell types
+
+```{r}
+for (i in seq_along(query_samples)){
+  id <- names(query_samples)[i]
+  write_rds(query_samples[[i]], glue::glue(paste0("../raw_data/{id}_processed_srt.rds")))
+}
+```
+
+
+```{r, echo=T, message=T, error=T}
+sessionInfo()
+```

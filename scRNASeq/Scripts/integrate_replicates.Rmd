@@ -1,0 +1,181 @@
+---
+title: "Integration of the replicates"
+author: "Tuemay Capraz"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r load libraries}
+library(here)
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+```
+
+
+## Introduction
+After quality control (see 1_preprocessing) we integrate the 2 ctrl replicates using Seurat. 
+
+```{r}
+options(warn = 1)
+
+# DECODE sample IDs of interest
+decode_ids <- c( "DS-0017D", "DS-0017F", "DS-00180", "DS-00183", "DS-00182","DS-00181",
+                 "DS-00188", "DS-00189","DS-0018D", "DS-0018C",  "DS-0018B", "DS-0018A", "DS-0018E")
+
+conditions <- c(rep(c("Control", "FBNR", "CA", "W", "RNAi", "DN"), times = 2), "arm_CA")
+batches <- c(rep(c("TX32", "TX34"), each = 6), "TX34")               
+
+
+
+# load objects
+result_list <- lapply(setNames(nm=decode_ids), function(id) {
+  readRDS(glue::glue("../raw_data/{id}_processed_srt.rds"))
+})
+```
+
+
+
+
+## Integrate the ctrl 2 replicates
+
+```{r}
+ctrl_split <- list(result_list$`DS-0017D`$srt, result_list$`DS-00188`$srt)
+features <- SelectIntegrationFeatures(object.list = ctrl_split)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = ctrl_split,
+                                  anchor.features = features)
+
+ctrl_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(ctrl_integrated) <- "integrated"
+ctrl_integrated <- ScaleData(ctrl_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(ctrl_integrated, "../raw_data/ctrl_seurat_integrated.rds")
+
+
+```
+
+## Integrate the FBNR 2 replicates
+
+```{r}
+fbnr_split <- list(result_list$`DS-0017F`$srt, result_list$`DS-00189`$srt)
+features <- SelectIntegrationFeatures(object.list = fbnr_split)
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = fbnr_split,
+                                  anchor.features = features)
+
+fbnr_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(fbnr_integrated) <- "integrated"
+fbnr_integrated <- ScaleData(fbnr_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(fbnr_integrated, "../raw_data/fbnr_seurat_integrated.rds")
+```
+
+
+## Integrate the DN 2 replicates
+
+```{r}
+DN_split <- list(result_list$`DS-00181`$srt, result_list$`DS-0018A`$srt)
+features <- SelectIntegrationFeatures(object.list = DN_split)
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = DN_split,
+                                  anchor.features = features)
+
+DN_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(DN_integrated) <- "integrated"
+DN_integrated <- ScaleData(DN_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(DN_integrated, "../raw_data/DN_seurat_integrated.rds")
+```
+
+## Integrate the RNAi 2 replicates
+
+```{r}
+RNAi_split <- list(result_list$`DS-00182`$srt, result_list$`DS-0018B`$srt)
+features <- SelectIntegrationFeatures(object.list = RNAi_split)
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = RNAi_split,
+                                  anchor.features = features)
+
+RNAi_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(RNAi_integrated) <- "integrated"
+RNAi_integrated <- ScaleData(RNAi_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(RNAi_integrated, "../raw_data/RNAi_seurat_integrated.rds")
+```
+
+
+
+
+## Integrate the W 2 replicates
+
+```{r}
+W_split <- list(result_list$`DS-00183`$srt, result_list$`DS-0018C`$srt)
+features <- SelectIntegrationFeatures(object.list = W_split)
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = W_split,
+                                  anchor.features = features)
+
+W_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(W_integrated) <- "integrated"
+W_integrated <- ScaleData(W_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(W_integrated, "../raw_data/W_seurat_integrated.rds")
+```
+
+## Integrate the CA 2 replicates
+
+```{r}
+CA_split <- list(result_list$`DS-00180`$srt, result_list$`DS-0018D`$srt)
+features <- SelectIntegrationFeatures(object.list = CA_split)
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = CA_split,
+                                  anchor.features = features)
+
+CA_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(CA_integrated) <- "integrated"
+CA_integrated <- ScaleData(CA_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+#saveRDS(CA_integrated, "../raw_data/CA_seurat_integrated.rds")
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
+

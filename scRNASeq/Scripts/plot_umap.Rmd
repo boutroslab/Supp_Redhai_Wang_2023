@@ -1,0 +1,129 @@
+---
+title: "plot_umap"
+author: "Tümay Capraz"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  BiocStyle::html_document:
+    css: huber.css
+    toc: yes
+    toc_float: yes
+    keep_md: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(BiocParallel)
+library(BiocNeighbors)
+library(Matrix)
+library(data.table)
+library(biomaRt)
+library(pbapply)
+library(pbmcapply)
+library(SingleR)
+library(DESeq2)
+library(ggplot2)
+library(patchwork)
+```
+
+
+# load all datasets
+
+```{r}
+
+# DECODE sample IDs of interest
+decode_ids <- c( "DS-0017D", "DS-0017F", "DS-00180", "DS-00183", "DS-00182","DS-00181",
+                 "DS-00188", "DS-00189","DS-0018D", "DS-0018C",  "DS-0018B", "DS-0018A", "DS-0018E")
+
+conditions <- c(rep(c("Control", "FBNR", "CA", "W", "RNAi", "DN"), times = 2), "arm_CA")
+batches <- c(rep(c("TX32", "TX34"), each = 6), "TX34")               
+
+
+
+# load objects
+result_list <- lapply(setNames(nm=decode_ids), function(id) {
+  readRDS(glue::glue("../raw_data/{id}_processed_srt.rds"))
+})
+
+result_list <- lapply(seq_along(result_list), function(i){
+  result_list[[i]]$srt$batch <- batches[i]
+  result_list[[i]]
+})
+names(result_list) <- decode_ids
+
+# load translation between gene names and FlyBase IDs
+gene2flybase <- read_tsv(file = "../raw_data/features.tsv.gz", col_types = "cc_", col_names = c("FlyBaseID", "Name"))
+
+col_data <- data.frame(condition = factor(conditions), batch = factor(batches), row.names = decode_ids)
+col_data$condition <- relevel(col_data$condition, "Control")
+col_data
+```
+
+# Plot umaps of both batches integrated
+
+```{r}
+result_list$`DS-0017F`$srt$flyatlas_annotation_clean_noLFC[is.na(result_list$`DS-0017F`$srt$flyatlas_annotation_clean_noLFC)] <- "unk"
+result_list$`DS-0017D`$srt$flyatlas_annotation_clean_noLFC[is.na(result_list$`DS-0017D`$srt$flyatlas_annotation_clean_noLFC)] <- "unk"
+result_list$`DS-00188`$srt$flyatlas_annotation_clean_noLFC[is.na(result_list$`DS-00188`$srt$flyatlas_annotation_clean_noLFC)] <- "unk"
+result_list$`DS-00189`$srt$flyatlas_annotation_clean_noLFC[is.na(result_list$`DS-00189`$srt$flyatlas_annotation_clean_noLFC)] <- "unk"
+result_list$`DS-00188`$srt$flyatlas_annotation_clean_noLFC[result_list$`DS-00188`$srt$flyatlas_annotation_clean_noLFC =="unannotated"] <- "unk"
+
+ctrl <-  merge(result_list$`DS-0017D`$srt, result_list$`DS-00188`$srt, merge.data=TRUE)
+ctrl$orig.ident[ctrl$orig.ident=="DS-0017D"] <- "batch 1"
+ctrl$orig.ident[ctrl$orig.ident=="DS-00188"] <- "batch 2"
+
+fbnr <-  merge(result_list$`DS-0017F`$srt, result_list$`DS-00189`$srt, merge.data=TRUE)
+fbnr$orig.ident[fbnr$orig.ident=="DS-0017F"] <- "batch 1"
+fbnr$orig.ident[fbnr$orig.ident=="DS-00189"] <- "batch 2"
+
+
+ctrl <- FindVariableFeatures(ctrl, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(ctrl )
+ctrl <- ScaleData(ctrl, features = all.genes)
+
+ctrl <- RunPCA(ctrl, features = VariableFeatures(object = ctrl))
+ctrl <- RunUMAP(ctrl, dims=1:25)
+DimPlot(ctrl,reduction="umap", group.by=c("orig.ident"))
+
+fbnr <- FindVariableFeatures(fbnr, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(fbnr )
+fbnr <- ScaleData(fbnr, features = all.genes)
+
+fbnr <- RunPCA(fbnr, features = VariableFeatures(object = fbnr))
+fbnr <- RunUMAP(fbnr, dims=1:25)
+DimPlot(fbnr,reduction="umap", group.by=c("orig.ident"))
+
+unique(ctrl$flyatlas_annotation_clean_noLFC)
+unique(fbnr$flyatlas_annotation_clean_noLFC)
+colours <- c(
+  "#c8534c", "#a980ba", "#177280", "#4c8fc1", "#77c8db", "#d6c080",
+  "#bbad00", "#1d811a", "#7ac779", "#de9259", "#585858", "#b2b2b2",
+  "#993333", "#6685a4", "#cca34d", "#cc99cc", "#666633", "#33cc99",
+  "#d96459","#6e44a2", "#ff9900")
+
+cell_types <- unique(c(ctrl$flyatlas_annotation_clean_noLFC, fbnr$flyatlas_annotation_clean_noLFC))
+names(colours) <- cell_types
+
+ctrl_plot<- DimPlot(ctrl,reduction="umap", cols=colours,group.by=c("flyatlas_annotation_clean_noLFC")) + ggtitle("")+ 
+  theme(aspect.ratio=1)+ scale_fill_manual(values=colours, drop=FALSE)
+fbnr_plot<- DimPlot(fbnr,reduction="umap",cols=colours, group.by=c("flyatlas_annotation_clean_noLFC"))+ ggtitle("")+ theme(aspect.ratio=1)+ scale_color_manual(values=colours, drop=FALSE)
+
+
+
+(ctrl_plot +labs(tag="A")) + (fbnr_plot + labs(tag="B"))
+
+
+
+```
+
+
+```{r}
+sessionInfo()
+```
+
+
+

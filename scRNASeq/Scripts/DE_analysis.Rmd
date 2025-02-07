@@ -1,0 +1,660 @@
+---
+title: "DE_analysis"
+author: "Tümay Capraz"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  BiocStyle::html_document:
+    css: huber.css
+    toc: yes
+    toc_float: yes
+    keep_md: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(tidyverse)
+library(BiocParallel)
+library(BiocNeighbors)
+library(Matrix)
+library(data.table)
+library(biomaRt)
+library(pbapply)
+library(pbmcapply)
+library(SingleR)
+library(DESeq2)
+library(AnnotationDbi)
+library(org.Dm.eg.db)
+library(dplyr)
+library(readr)
+```
+
+
+
+
+
+This notebook is based on de.qmd from Alexander Helmboldt.
+
+
+## Helper functions
+
+```{r}
+# this needs to be run since otherwise the tables are not printed
+#DT::datatable(NULL)
+
+# datatable options
+datatable_options <- list(
+  pageLength = 10,
+  lengthMenu = c(10, 20, 50),
+  columnDefs = list(list(className='dt-left', targets=0)),
+  scrollX=TRUE, scrollCollapse=TRUE
+)
+
+`%ni%` <- Negate(`%in%`)
+
+# Volcano plot
+get_volcano_plot <- function(dds_result, name, force_labels = NULL, col_max_padj = 0.1, label_max_pval = 0.1) {
+  # prepare tibble for plotting
+  tbl <- dds_result %>%
+    as_tibble(rownames = "row") %>%
+    drop_na() %>%
+    mutate(typeDE = factor(ifelse(padj < col_max_padj, ifelse(log2FoldChange > 0, "up", "down"), "no"), levels = c("no", "down", "up"))) %>%
+    mutate(label = ifelse(padj < label_max_pval, row, ''))
+  
+  force_tbl <- dds_result %>%
+    as_tibble(rownames = "row") %>%
+    mutate(typeDE = factor(ifelse(padj < col_max_padj, ifelse(log2FoldChange > 0, "up", "down"), "no"), levels = c("no", "down", "up"))) %>%
+    mutate(label = ifelse(padj < label_max_pval, row, '')) %>% filter(row %in% force_labels)
+  
+  tbl <- rbind(tbl, force_tbl)
+  # add more labels if required
+  if(!is.null(force_labels)) {
+    tbl <- tbl %>%
+      mutate(label = ifelse(row %in% force_labels, row, label))
+  }
+  # produce plot
+  overlaps <- ifelse(name=="ISC-EB", 10, 10) 
+  highlight <- tbl[tbl$label %in% force_labels,]
+  
+  if (name=="EB"){
+    yoffset <- 1
+    xoffset <- -0.1
+    labely_offset <- 0.4
+  }else{
+     yoffset <- 0.5
+    xoffset <- -0.2
+    labely_offset <- 0.2
+  }
+  
+  highlight$labely <- -log10(highlight$pvalue) +yoffset
+  highlight$labelx<- highlight$log2FoldChange +xoffset
+
+  tbl <- tbl[tbl$label %ni% force_labels,]
+  ggplot(tbl, aes(x=log2FoldChange, y=-log10(pvalue))) +
+    geom_point(aes(color=typeDE)) +
+    geom_text_repel(aes(label = label), max.overlaps = overlaps ,force=20,
+                                    min.segment.length = unit(0, 'lines')) +
+    geom_point(data = highlight, aes(color=typeDE))+
+    geom_text(data=highlight, aes(x = labelx, y = labely+labely_offset, label=label)) +
+    geom_segment(data = highlight,
+               aes(xend = labelx, yend = labely, x = log2FoldChange, y = -log10(pvalue)), 
+               color = "black") +
+    scale_color_manual(values = c("no" = "darkgray", "down" = "steelblue", "up" = "firebrick"))
+}
+
+# Data table
+get_results_table <- function(dds_result, col_max_padj = 0.1) {
+  dds_result %>%
+    as_tibble(rownames = "row") %>%
+    mutate(typeDE = ifelse(padj < col_max_padj, ifelse(log2FoldChange > 0, "up", "down"), "no")) %>%
+    arrange(row) %>%
+    column_to_rownames("row") %>%
+    dplyr::select(
+      "LFC" = log2FoldChange,
+      "LFC (Std.Err.)" = lfcSE,
+      "DE Type" = typeDE,
+      "p-value" = pvalue,
+      "BH-adj. p-value" = padj,
+      "Base Mean" = baseMean
+    ) %>%
+    DT::datatable(options=datatable_options, width="100%", height="auto") %>%
+    DT::formatRound(c("LFC", "LFC (Std.Err.)", "Base Mean"), digits=3) %>%
+    DT::formatRound(c("p-value", "BH-adj. p-value"), digits=5) %>%
+    htmltools::tagList()
+}
+```
+
+# load all datasets
+
+```{r}
+
+# DECODE sample IDs of interest
+decode_ids <- c( "DS-0017D", "DS-0017F", "DS-00180", "DS-00183", "DS-00182","DS-00181",
+                 "DS-00188", "DS-00189","DS-0018D", "DS-0018C",  "DS-0018B", "DS-0018A", "DS-0018E")
+
+conditions <- c(rep(c("Control", "FBNR", "CA", "W", "RNAi", "DN"), times = 2), "arm_CA")
+batches <- c(rep(c("TX32", "TX34"), each = 6), "TX34")               
+
+
+
+# load objects
+result_list <- lapply(setNames(nm=decode_ids), function(id) {
+  readRDS(glue::glue("../raw_data/{id}_processed_srt.rds"))
+})
+
+# load translation between gene names and FlyBase IDs
+gene2flybase <- read_tsv(file = "../raw_data/features.tsv.gz", col_types = "cc_", col_names = c("FlyBaseID", "Name"))
+
+col_data <- data.frame(condition = factor(conditions), batch = factor(batches), row.names = decode_ids)
+col_data
+
+#merge ISC and EB
+result_list = lapply(result_list, function(x){
+  x$srt$flyatlas_annotation_clean_noLFC[x$srt$flyatlas_annotation_clean_noLFC == "ISC"] = "ISC-EB"
+    x$srt$flyatlas_annotation_clean_noLFC[x$srt$flyatlas_annotation_clean_noLFC == "EB"] = "ISC-EB"
+  x
+})
+
+
+for (i in decode_ids){
+  result_list[[i]]$srt$flyatlas_annotation_clean_noLFC[is.na(result_list[[i]]$srt$flyatlas_annotation_clean_noLFC)] <-"nan"
+}
+```
+
+
+# Get pseudobulks for each celltype
+
+
+```{r}
+get_pb_counts <- function(group_by, result_list){
+
+  
+  # Determine common groups and common genes across all relevant samples
+  common_groups <- Reduce(intersect, Map(function(result) unique(result$srt[[group_by, drop=TRUE]]), result_list))
+  common_groups <- setNames(nm = sort(common_groups))
+  common_genes <- Reduce(intersect, Map(function(result) rownames(result$srt), result_list))
+  
+  
+  # Generate pseudo-bulk counts by aggregating raw counts across cells for each group and sample
+  pb_counts <- lapply(result_list, function(result) {
+      mat <- Seurat::AggregateExpression(result$srt, group.by = group_by,
+                                         features = common_genes, assays = "RNA",
+                                         slot = "counts")[["RNA"]]
+      mode(mat) <- "integer"
+      return(mat)
+    })
+  
+  # make data frames for each group
+  pb_counts_list <- lapply(common_groups, function(group) {
+    map(pb_counts, ~ as.matrix(.)[, group, drop=TRUE]) %>%
+      bind_cols() %>%
+      as.data.frame() %>%
+      `rownames<-`(common_genes)
+  })
+  pb_counts_list
+}
+
+# Cell types of interest
+pb_counts_flyatlas <- get_pb_counts(group_by = "flyatlas_annotation_clean_noLFC", result_list=result_list)
+
+
+groups_of_interest_flyatlas <- names(pb_counts_flyatlas)
+
+
+```
+
+
+
+
+
+# DE analysis
+
+```{r}
+DE_analysis <- function(groups_of_interest, pb_counts_list){
+  # should we perform pre-filtering?
+  do_pre_filter <- FALSE
+  test_to_use <- "Wald"
+  
+  # generarte list with DESeq objects
+  dds_list <- lapply(groups_of_interest, function(group) {
+    # generate DESeq object from count matrix
+    dds <- DESeq2::DESeqDataSetFromMatrix(
+      countData = pb_counts_list[[group]],
+      colData = col_data,
+      design = ~ batch + condition
+    )
+    # pre-filtering of lowly expressed genes
+    if(do_pre_filter) {
+      keep <- rowSums(counts(dds) >= 10) >= 2
+      dds <- dds[keep,]
+    }
+    # run DE analysis wrapper
+    if(test_to_use == "LRT") {
+      DESeq(dds, test = "LRT", reduced = ~ batch)
+    } else {
+      DESeq(dds)
+    }
+  })
+  #names(dds_list) <- names(pb_counts_list)
+  names(dds_list) <- groups_of_interest
+
+  dds_list
+}
+
+get_contrast <- function(dds_list, group1, group2){
+   # generate DE results
+  res_list <- lapply(dds_list, DESeq2::results, contrast = c("condition", group1, group2), independentFiltering = TRUE, alpha = 0.1, tidy = FALSE)
+  #names(res_list) <- names(pb_counts_list)
+  res_list
+}
+ 
+col_data$condition <- relevel(col_data$condition, ref="Control")
+
+dds_flyatlas <- DE_analysis(groups_of_interest_flyatlas, pb_counts_flyatlas)
+
+
+
+DE_flyatlas_RNAi_FBNR <- get_contrast(dds_flyatlas, "RNAi", "FBNR")
+DE_flyatlas_DN_FBNR <- get_contrast(dds_flyatlas, "DN", "FBNR")
+DE_flyatlas_W_FBNR <- get_contrast(dds_flyatlas, "W", "FBNR")
+DE_flyatlas_CA_FBNR <- get_contrast(dds_flyatlas, "CA", "FBNR")
+DE_flyatlas_armCA_FBNR <- get_contrast(dds_flyatlas, "arm_CA", "FBNR")
+
+DE_flyatlas_FBNR <- get_contrast(dds_flyatlas, "FBNR","Control")
+DE_flyatlas_RNAi <- get_contrast(dds_flyatlas, "RNAi", "Control")
+DE_flyatlas_DN <- get_contrast(dds_flyatlas, "DN", "Control")
+DE_flyatlas_W <- get_contrast(dds_flyatlas, "W", "Control")
+DE_flyatlas_CA <- get_contrast(dds_flyatlas, "CA", "Control")
+DE_flyatlas_armCA <- get_contrast(dds_flyatlas, "arm_CA", "Control")
+
+
+# add gene summaries to output
+gene_summaries<-as.data.frame(fread("../raw_data/best_gene_summary_fb_2024_02.tsv"))
+colnames(gene_summaries) <- gene_summaries[1,]
+rownames(gene_summaries) <- gene_summaries$Gene_Symbol
+
+for (i in names(DE_flyatlas_FBNR)){
+  DE_flyatlas_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_DN[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_RNAi[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_W[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_CA[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_armCA[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+ 
+  DE_flyatlas_RNAi_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_DN_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_W_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_CA_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+  DE_flyatlas_armCA_FBNR[[i]][rownames(gene_summaries),"summary"] <- gene_summaries$Summary
+
+}
+```
+
+
+
+
+# Plot volcanos for all references and cell types and save
+
+```{r, eval=FALSE}
+
+for (i in names(DE_flyatlas_FBNR)){
+  print(get_volcano_plot(DE_flyatlas_FBNR[[i]], name=i, force_labels = c("CG42795", "Apc","puc", "fz3")) + ggtitle(paste0(i," FBNR")))
+
+  print(get_volcano_plot(DE_flyatlas_DN[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," DN")))
+
+  print(get_volcano_plot(DE_flyatlas_RNAi[[i]],name=i, force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," RNAi")))
+
+  print(get_volcano_plot(DE_flyatlas_W[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," W")))
+
+  print(get_volcano_plot(DE_flyatlas_CA[[i]],name=i, force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," CA")))
+
+  print(get_volcano_plot(DE_flyatlas_armCA[[i]],name=i, force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," CA")))
+
+  print(get_volcano_plot(DE_flyatlas_RNAi_FBNR[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," RNAi_FBNR")))
+
+  print(get_volcano_plot(DE_flyatlas_DN_FBNR[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," DN_FBNR")))
+
+  print(get_volcano_plot(DE_flyatlas_W_FBNR[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," W_FBNR")))
+
+  print(get_volcano_plot(DE_flyatlas_CA_FBNR[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," CA_FBNR")))
+
+  print(get_volcano_plot(DE_flyatlas_armCA_FBNR[[i]], name=i,force_labels = c("CG42795", "Apc", "puc","fz3")) + ggtitle(paste0(i," CA_FBNR")))
+}
+
+
+```
+
+# Store lists of DE genes
+
+```{r}
+# alpha sets adjusted p-value cutoff for genes to store. store all genes if alpha > 1
+alpha = 2
+
+for (i in names(DE_flyatlas_FBNR)){
+  write.csv(DE_flyatlas_FBNR[[i]][which(DE_flyatlas_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/FBNR_", i, ".csv"))
+  write.csv(DE_flyatlas_DN[[i]][which(DE_flyatlas_DN[[i]]$padj<alpha),], paste0("../results/DE_results/DN_", i, ".csv"))
+  write.csv(DE_flyatlas_RNAi[[i]][which(DE_flyatlas_RNAi[[i]]$padj<alpha),], paste0("../results/DE_results/RNAi_", i, ".csv"))
+  write.csv(DE_flyatlas_W[[i]][which(DE_flyatlas_W[[i]]$padj<alpha),], paste0("../results/DE_results/W_", i, ".csv"))
+  write.csv(DE_flyatlas_CA[[i]][which(DE_flyatlas_CA[[i]]$padj<alpha),], paste0("../results/DE_results/CA_", i, ".csv"))    
+  write.csv(DE_flyatlas_armCA[[i]][which(DE_flyatlas_armCA[[i]]$padj<alpha),], paste0("../results/DE_results/arm_CA_", i, ".csv"))    
+  write.csv(DE_flyatlas_RNAi_FBNR[[i]][which(DE_flyatlas_RNAi_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/RNAi_FBNR_", i, ".csv"))
+  write.csv(DE_flyatlas_DN_FBNR[[i]][which(DE_flyatlas_DN_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/DN_FBNR_", i, ".csv"))
+  write.csv(DE_flyatlas_W_FBNR[[i]][which(DE_flyatlas_W_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/W_FBNR_", i, ".csv"))
+  write.csv(DE_flyatlas_CA_FBNR[[i]][which(DE_flyatlas_CA_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/CA_FBNR_", i, ".csv"))             
+  write.csv(DE_flyatlas_CA_FBNR[[i]][which(DE_flyatlas_armCA_FBNR[[i]]$padj<alpha),], paste0("../results/DE_results/armCA_FBNR_", i, ".csv"))                
+}
+
+```
+
+
+
+# Gene set enrichment analysis
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show GSEA parameters"
+
+# define general parameters for running GSEA with clusterProfiler
+gse_params <- list(
+  pvalueCutoff = 0.01,
+  pAdjustMethod = 'BH',
+  eps = 1e-30,
+  nPermSimple = 10000,
+  minGSSize = 10,
+  maxGSSize = 500,
+  by = 'fgsea',
+  verbose = FALSE
+)
+
+
+
+```
+
+## Helper functions
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show function definitions"
+
+# function to convert results from clusterProfiler into a format compatible with fgsea's collapsePathways function
+#' @importFrom rlang .data
+cp_to_fgsea <- function(cp_object) {
+  cp_object@result %>%
+    dplyr::select(.data$ID, .data$enrichmentScore) %>%
+    dplyr::arrange(.data$ID) %>%
+    dplyr::rename("pathway" = "ID", "ES" = "enrichmentScore") %>%
+    data.table::as.data.table()
+}
+
+#' Collapse pathways given a results object from clusterProfiler
+#'
+#' @param cp_result An object returned by clusterProfiler's \code{gseGO} or \code{gseKEGG} functions.
+#' @param pval_cut see the \code{pval.threshold} parameter of the \code{fgsea::collapsePathways} function.
+#' @param nperm see the \code{nperm} parameter of the \code{fgsea::collapsePathways} function.
+#'
+#' @export
+cp_collapse <- function(cp_result, pval_cut = 0.05, nperm = 10/pval_cut) {
+  # remove NA pathways
+  cp_result@geneList <- cp_result@geneList[!is.na(names(cp_result@geneList))]
+  
+  fgsea::collapsePathways(
+    fgseaRes = cp_to_fgsea(cp_result), pathways = cp_result@geneSets,
+    stats = cp_result@geneList, pval.threshold = pval_cut, nperm = nperm
+  )
+}
+
+# function to iteratively map keys based on different key types
+iterMapIds <- function(x, keys, column, keytypes, ..., multiVals) {
+  result <- setNames(object = vector(mode = "character", length = length(keys)), nm = keys)
+  na_genes <- keys
+  i <- 1
+  repeat {
+    result[na_genes] <- mapIds(x, keys = na_genes, column = column, keytype = keytypes[i], ..., multiVals = multiVals)
+    na_genes <- names(which(is.na(result)))
+    i <- i + 1
+    if(length(na_genes) == 0) break
+    if(i > length(keytypes)) {
+      warning(paste("There are still", length(na_genes), "unmapped keys left after trying all keytypes"))
+      break
+    }
+  }
+  return(result)
+}
+
+# updated dictionary to translate the annotated genes to Entrez IDs
+gene2flybase_clean <- gene2flybase %>%
+  mutate(
+    EntrezID = mapIds(org.Dm.eg.db, keys = FlyBaseID, keytype = "FLYBASE", column = "ENTREZID", multiVals = "first"),
+    EntrezID = if_else(is.na(EntrezID), iterMapIds(org.Dm.eg.db, keys = Name, keytypes = c("SYMBOL", "FLYBASECG"), column = "ENTREZID", multiVals = "first"), EntrezID),
+    EntrezID = case_when(Name == "Osi10" ~ "40764", TRUE ~ EntrezID)
+  ) %>%
+  drop_na(EntrezID)
+
+# generate a data frame containing a specified metric for each gene (rows) in each cell type of interest (columns)
+de_ranking_metric_df <- function(de_res_list, ranking_var = "log2FoldChange") {
+  mapply(function(res, name) {
+    res %>%
+      as_tibble(rownames = "gene") %>%
+      dplyr::select(gene, !!name := !!ranking_var)
+  }, de_res_list, names(de_res_list), SIMPLIFY = FALSE) %>%
+    purrr::reduce(inner_join, by="gene")
+}
+
+# generate ranked gene lists for each cell type of interest
+get_ranked_gene_lists <- function(de_res_list, ranking_var = "log2FoldChange") {
+  # generate data frame with one column per cell type
+  metric_df <- de_ranking_metric_df(de_res_list = de_res_list, ranking_var = ranking_var)
+  # transform FlyBase IDs to Entrez IDs
+  entrez_ids <- metric_df %>%
+    left_join(gene2flybase_clean, by = c("gene" = "Name")) %>%
+    pull(EntrezID)
+  # generate one ranked gene list per cell type
+  df <- apply(metric_df[,-1], 2, function(col) { 
+    keep <- !is.na(col)
+    setNames(object = col[keep], nm = entrez_ids[keep]) %>%
+      sort(decreasing = TRUE)
+  }, simplify = FALSE)
+  lapply(df, function(x){
+    x[!is.na(x)]
+  })
+}
+```
+
+
+```{r}
+# generate and collapse GSEA results
+get_gsea_results <- function(de_res_list, ranking_var = "log2FoldChange") {
+  # Make gene lists ordered with respect to LFCs
+  gene_lists <- get_ranked_gene_lists(de_res_list = de_res_list, ranking_var = ranking_var)
+  # GO gene set enrichment analysis
+  set.seed(238)
+  go_result_list <- lapply(gene_lists, function(genes) {
+    do.call(clusterProfiler::gseGO, args = c(
+      list(geneList = genes, ont = 'ALL', OrgDb = 'org.Dm.eg.db', keyType = 'ENTREZID'),
+      gse_params
+    ))
+  })
+  # KEGG pathway gene set enrichment analysis
+  set.seed(238)
+  kegg_result_list <- lapply(gene_lists, function(genes) {
+    do.call(clusterProfiler::gseKEGG, args = c(
+      list(geneList = genes, organism = 'dme', keyType = "ncbi-geneid"),
+      gse_params
+    ))
+  })
+  # collapse pathways
+  set.seed(238)
+  go_collapsed_list <- lapply(go_result_list, cp_collapse)
+  kegg_collapsed_list <- lapply(kegg_result_list, cp_collapse)
+  # return objects with results
+  list(
+    go = list(raw = go_result_list, collapsed = go_collapsed_list),
+    kegg = list(raw = kegg_result_list, collapsed = kegg_collapsed_list)
+  )
+}
+
+# generate barplots to display significantly enriched gene sets
+get_gsea_barplot <- function(de_res_list = NULL, ranking_var = "log2FoldChange", gsea_results = NULL) {
+  # get GSEA results if they are not provided
+  if(is.null(gsea_results)) {
+    gsea_results <- get_gsea_results(de_res_list = de_res_list, ranking_var = ranking_var)
+  } else {
+    groups = names(gsea_results[[1]][["raw"]])
+  }
+  # plotting function
+  plt_fct <- function(db = c("go", "kegg")) {
+    plt_df <- gsea_results[[db]][["raw"]][[group]]@result
+    if (nrow(plt_df) ==0){
+      return(NULL)
+    }
+    if(db == "go") plt_df <- plt_df %>% filter(ONTOLOGY %in% c("BP", "CC"))
+    plt_df <- plt_df %>%
+      filter(ID %in% gsea_results[[db]][["collapsed"]][[group]]$mainPathways) %>%
+      arrange(NES) %>%
+      mutate(Description = factor(Description, levels = Description))
+    plt <- ggplot(plt_df, aes(y=Description, x=NES)) +
+      geom_vline(xintercept = 0.0, color = "black") +
+      geom_col(aes(fill=-log10(p.adjust)), width = 0.7, color = "black", linewidth = 0.2) +
+      labs(y = NULL, x = "Normalized Enrichment Score") +
+      scale_fill_distiller(palette = "Greens") +
+      theme(text = element_text(size=12))
+    if(db == "go") plt <- plt + facet_grid(ONTOLOGY ~ ., scales="free_y", space = "free_y")
+    return(plt)
+  }
+  # assemble plots
+  plt_list <- list()
+  for(group in groups) {
+    plt_list[[group]][["go"]] <- plt_fct("go")
+    plt_list[[group]][["kegg"]] <- plt_fct("kegg")
+  }
+  # return plots and GSEA results
+  list(
+    plots = plt_list,
+    gsea = gsea_results
+  )
+}
+```
+
+
+# DE results
+
+```{r}
+rm(result_list)
+DE_flyatlas_FBNR <- lapply(DE_flyatlas_FBNR, function(x){x[!is.na(x$stat),]})
+gsea_flyatlas_FBNR <- get_gsea_results(DE_flyatlas_FBNR, ranking_var = "stat")
+gsea_flyatlas_DN <- get_gsea_results(DE_flyatlas_DN, ranking_var = "stat")
+gsea_flyatlas_RNAi <- get_gsea_results(DE_flyatlas_RNAi, ranking_var = "stat")
+gsea_flyatlas_DN_FBNR <- get_gsea_results(DE_flyatlas_DN_FBNR, ranking_var = "stat")
+gsea_flyatlas_RNAi_FBNR <- get_gsea_results(DE_flyatlas_RNAi_FBNR, ranking_var = "stat")
+
+gsea_flyatlas_W <- get_gsea_results(DE_flyatlas_W, ranking_var = "stat")
+gsea_flyatlas_CA <- get_gsea_results(DE_flyatlas_CA, ranking_var = "stat")
+gsea_flyatlas_armCA <- get_gsea_results(DE_flyatlas_armCA, ranking_var = "stat")
+
+gsea_flyatlas_W_FBNR <- get_gsea_results(DE_flyatlas_W_FBNR, ranking_var = "stat")
+gsea_flyatlas_CA_FBNR <- get_gsea_results(DE_flyatlas_CA_FBNR, ranking_var = "stat")
+gsea_flyatlas_armCA_FBNR <- get_gsea_results(DE_flyatlas_armCA_FBNR, ranking_var = "stat")
+
+
+```
+
+```{r}  
+gsea_flyatlas <- list("ctrl_FBNR_only" = gsea_flyatlas_FBNR,
+                      "DN" = gsea_flyatlas_DN,
+                      "RNAi" = gsea_flyatlas_RNAi,
+                      "W" = gsea_flyatlas_W,
+                      "CA" = gsea_flyatlas_CA,
+                      "armCA" =  gsea_flyatlas_armCA,
+                      "RNAi_FBNR" = gsea_flyatlas_RNAi_FBNR,
+                      "DN_FBNR" = gsea_flyatlas_DN_FBNR,
+                      "W_FBNR" = gsea_flyatlas_W_FBNR,
+                      "CA_FBNR" = gsea_flyatlas_CA_FBNR,
+                      "armCA_FBNR" = gsea_flyatlas_armCA_FBNR)
+
+
+gsea_flyatlas_barplots <- lapply(gsea_flyatlas, function(x){
+                                   get_gsea_barplot(gsea_result=x)
+
+})
+
+```
+
+```{r}
+# get gene symbols per pathway
+get_genes_per_pathway <- function(gsea_results, db, group, input_genes){
+  plt_df <- gsea_results[[db]][["raw"]][[group]]@result
+  if (nrow(plt_df) ==0){
+    return(NULL)
+  }
+  if(db == "go") plt_df <- plt_df %>% filter(ONTOLOGY %in% c("BP", "CC"))
+  main_pathways <- gsea_results[[db]][["collapsed"]][[group]]$mainPathways
+  terms <- plt_df$ID[plt_df$ID %in% main_pathways]
+  descriptions <- plt_df$Description[plt_df$ID %in% main_pathways]
+
+  out_genes <- gsea_results[[db]][["raw"]][[group]]@geneSets[terms]
+  names(out_genes) <- descriptions
+  out_genes <- lapply(out_genes, function(x){
+    x = data.frame(entrez=x)
+    out = left_join(x, gene2flybase_clean, by=c("entrez" = "EntrezID")) %>%
+     pull(Name)
+    out <- out[out %in% input_genes]
+    out
+  })
+  
+  out_genes
+}
+
+input_genes <- rownames(DE_flyatlas_RNAi_FBNR$ISC)
+# write pathways with genes to file
+gse_dir = "../results/GSEA/"
+for (cond in names(gsea_flyatlas)){
+  for(cell_type in groups_of_interest_flyatlas) {
+    cell_type_name <- gsub("/", "-", cell_type)
+    go_genes <- get_genes_per_pathway(gsea_flyatlas[[cond]], "go", cell_type, input_genes)
+    kegg_genes <- get_genes_per_pathway(gsea_flyatlas[[cond]], "kegg", cell_type, input_genes)
+    
+    for (pathway in names(go_genes)){
+       pathway_name <- gsub("/", "-", pathway)
+
+       write(go_genes[[pathway]],paste0(gse_dir, "go_",cond, "_", cell_type_name,"_",pathway_name))
+    }
+    for (pathway in names(kegg_genes)){
+       pathway_name <- gsub("/", "-", pathway)
+
+       write(kegg_genes[[pathway]],paste0(gse_dir, "kegg_",cond, "_", cell_type_name,"_", pathway_name))
+    }
+  }
+}
+
+```
+
+
+
+```{r}
+# write pathways with genes to file
+gse_dir = "../Graphics/GSEA/"
+for (cond in names(gsea_flyatlas_barplots)){
+  for(cell_type in groups_of_interest_flyatlas) {
+    cell_type_name <- gsub("/", "-", cell_type)
+    for(x in names(gsea_flyatlas_barplots[[cond]]$plots[[cell_type]])) {
+      if (!is.null(gsea_flyatlas_barplots[[cond]]$plots[[cell_type]][[x]])){
+        print(gsea_flyatlas_barplots[[cond]]$plots[[cell_type]][[x]])
+        ggsave(paste0(gse_dir ,x, "_",cond, "_", cell_type_name,".pdf"),width = 10, height=12, dpi=400)
+        
+      }
+    }
+  }
+}
+
+getwd()
+```
+
+
+```{r, echo=T, message=T, error=T}
+sessionInfo()
+```
+
