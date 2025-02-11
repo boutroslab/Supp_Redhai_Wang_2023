@@ -115,8 +115,52 @@ fbnr_plot<- DimPlot(fbnr,reduction="umap",cols=colours, group.by=c("flyatlas_ann
 
 
 (ctrl_plot +labs(tag="A")) + (fbnr_plot + labs(tag="B"))
+```
 
 
+```{r}
+
+seurat_naive_integration <- read_rds("../raw_data/ctrl_fbnr_integrated_filtered_clean_noLFC.rds")
+
+colours <- c(
+  "#c8534c", "#a980ba", "#993333", "#4c8fc1", "#77c8db", "#d6c080",
+   "#1d811a", "#7ac779", "#de9259","#6e44a2", "#585858")
+names(colours) <- c("aEC", "Copper", "dEC", "EB", "EE", "ISC",  "EC-like", "MT", "pEC", "EC", "unk")
+
+DimPlot(seurat_naive_integration,  cols = colours, split.by = "perturbation", group.by="flyatlas_annotation_clean_noLFC") + ggtitle("") +
+  theme(axis.line=element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank())
+
+umap_data <- data.frame(seurat_naive_integration@reductions$umap@cell.embeddings)
+umap_data$cell_type <-seurat_naive_integration$flyatlas_annotation_clean_noLFC
+umap_data$alpha <- seurat_naive_integration$alpha
+umap_data$perturbation <- "Control"
+umap_data$perturbation[seurat_naive_integration$perturbation=="fbnr"] <- "APC RNAi"
+  
+
+ggplot(umap_data) +geom_point( aes(x=UMAP_1, y=UMAP_2, colour=cell_type, shape=perturbation), size=.1)+ scale_color_manual(values =colours,name = "cell_types")+
+ggtitle("")+
+  theme(axis.line=element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),aspect.ratio=1,panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),legend.text=element_text(size=10),legend.title=element_blank())+ guides(colour = guide_legend(override.aes = list(size=2.5)), shape = guide_legend(override.aes = list(size=2.5)))
+
+ggplot(umap_data) +geom_point( aes(x=UMAP_1, y=UMAP_2, colour=cell_type, alpha=perturbation), size=.1)+ scale_color_manual(values =colours,name = "cell_types")+scale_alpha_manual(values =c(0.8,0.1))+
+ggtitle("")+
+  theme(axis.line=element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),aspect.ratio=1,panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),legend.text=element_text(size=10),legend.title=element_blank())+ guides(colour = guide_legend(override.aes = list(size=2.5)), alpha = guide_legend(override.aes = list(size=2.5)))
 
 ```
 
