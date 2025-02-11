@@ -1,8 +1,9 @@
 # Summary 
 
 This part of the repository contains Rmd notebooks for the sc-RNA-Seq analysis. 
-Raw data contains preprocessed Seurat objects with annotated cell types for each 
-sample as rds files. 
+The data was deposited at Zenodo under https://zenodo.org/records/14848470. 
+Please download the data first and 
+extract it to the raw_data directory.
 To perform DE analysis and plot umaps the full analysis does not need to be run, 
 only if one wants to recapitulate the analysis steps.
 
