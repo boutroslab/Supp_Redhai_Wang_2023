@@ -1,0 +1,9 @@
+cellpose --verbose --use_gpu --diameter 0 --dir "C:\Users\admb110\Desktop\Experiments Revision\All data\R1" --save_tif --chan 1 --pretrained_model "C:\Users\admb110\Desktop\Saskia mCol training data\models\SRcyto2_enhanced_mCol11" --fast_mode --no_interp --no_npy --savedir "C:\Users\admb110\Desktop\Experiments Revision\All data\masks1"
+
+cellpose --verbose --use_gpu --diameter 0 --dir "C:\Users\admb110\Desktop\Experiments Revision\All data\R2" --save_tif --chan 1 --pretrained_model "C:\Users\admb110\Desktop\Saskia mCol training data\models\SRcyto2_enhanced_mCol11" --fast_mode --no_interp --no_npy --savedir "C:\Users\admb110\Desktop\Experiments Revision\All data\masks2"
+
+cellpose --verbose --use_gpu --diameter 0 --dir "C:\Users\admb110\Desktop\Experiments Revision\All data\R3" --save_tif --chan 1 --pretrained_model "C:\Users\admb110\Desktop\Saskia mCol training data\models\SRcyto2_enhanced_mCol11" --fast_mode --no_interp --no_npy --savedir "C:\Users\admb110\Desktop\Experiments Revision\All data\masks3"
+
+cellpose --verbose --use_gpu --diameter 0 --dir "C:\Users\admb110\Desktop\Experiments Revision\All data\R4" --save_tif --chan 1 --pretrained_model "C:\Users\admb110\Desktop\Saskia mCol training data\models\SRcyto2_enhanced_mCol11" --fast_mode --no_interp --no_npy --savedir "C:\Users\admb110\Desktop\Experiments Revision\All data\masks4"
+
+cellpose --verbose --use_gpu --diameter 0 --dir "C:\Users\admb110\Desktop\Experiments Revision\All data\R5" --save_tif --chan 1 --pretrained_model "C:\Users\admb110\Desktop\Saskia mCol training data\models\SRcyto2_enhanced_mCol11" --fast_mode --no_interp --no_npy --savedir "C:\Users\admb110\Desktop\Experiments Revision\All data\masks5"
