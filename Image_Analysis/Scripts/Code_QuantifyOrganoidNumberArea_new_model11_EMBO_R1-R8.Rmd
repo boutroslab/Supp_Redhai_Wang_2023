@@ -34,7 +34,7 @@ library(tidyverse)
 #R1
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R1_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R1_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -53,7 +53,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data1 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta1 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
+meta1 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R1")
@@ -64,7 +64,7 @@ organoid_data1 <-full_join(organoid_data1, meta1, by="ImageNr")
 #R2
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R2_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R2_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -83,7 +83,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data2 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta2 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
+meta2 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R2")
@@ -94,7 +94,7 @@ organoid_data2 <-full_join(organoid_data2, meta2, by="ImageNr")
 #R3
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R3_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R3_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -113,7 +113,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data3 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta3 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
+meta3 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R3")
@@ -124,7 +124,7 @@ organoid_data3 <-full_join(organoid_data3, meta3, by="ImageNr")
 #R4
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R4_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R4_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -143,7 +143,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data4 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta4 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
+meta4 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R4")
@@ -154,7 +154,7 @@ organoid_data4 <-full_join(organoid_data4, meta4, by="ImageNr")
 #R5
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R5_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R5_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -173,7 +173,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data5 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta5 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
+meta5 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R1,R3,R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R5")
@@ -184,7 +184,7 @@ organoid_data5 <-full_join(organoid_data5, meta5, by="ImageNr")
 #R6
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R6_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R6_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -203,7 +203,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data6 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta6 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
+meta6 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R2,R4,R6.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R6")
@@ -214,7 +214,7 @@ organoid_data6 <-full_join(organoid_data6, meta6, by="ImageNr")
 #R8
 ```{r}
 # where are your image masks
-mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Masks_R8_new"
+mask_folder <- "../raw_data/ImageMasks_R1-R8/Masks_R8_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -233,7 +233,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data8 <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta8 <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R8.csv", header = TRUE, sep=";"))
+meta8 <- (read.csv("../raw_data/ImageMasks_R1-R8/Overview_ImageNr_WellContent_R8.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R8")
@@ -245,7 +245,7 @@ organoid_data8 <-full_join(organoid_data8, meta8, by="ImageNr")
 #Combine all data in one table and export as TSV
 ```{r}
 ImageQuantification_R1toR8_results <- rbind(organoid_data1, organoid_data2, organoid_data3, organoid_data4, organoid_data5, organoid_data6, organoid_data8)
-write.table(ImageQuantification_R1toR8_results, file="~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/Results/ImageQuantification_R1toR8_results.tsv")
+write.table(ImageQuantification_R1toR8_results, file="../Results/ImageQuantification_R1toR8_results.tsv")
 ```
 
 #Sessioninfo
