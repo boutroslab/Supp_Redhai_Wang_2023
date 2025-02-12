@@ -37,7 +37,7 @@ library(tidyverse)
 #R1-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Masks_R1_rev_new"
+mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Masks_R1_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -56,7 +56,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data1R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta1R <- (read.csv("~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR1.csv", header = TRUE, sep=";"))
+meta1R <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR1.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R1_rev")
@@ -67,7 +67,7 @@ organoid_data1R <-full_join(organoid_data1R, meta1R, by="ImageNr")
 #R2-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Masks_R2_rev_new"
+mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Masks_R2_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -86,7 +86,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data2R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta2R <- (read.csv("~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta2R <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R2_rev")
@@ -97,7 +97,7 @@ organoid_data2R <- full_join(organoid_data2R, meta2R, by="ImageNr")
 #R3-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Masks_R3_rev_new"
+mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Masks_R3_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -116,7 +116,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data3R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta3R <- (read.csv("~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta3R <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R3_rev")
@@ -127,7 +127,7 @@ organoid_data3R <- full_join(organoid_data3R, meta3R, by="ImageNr")
 #R4-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Masks_R4_rev_new"
+mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Masks_R4_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -146,7 +146,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data4R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta4R <- (read.csv("~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta4R <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R4_rev")
@@ -157,7 +157,7 @@ organoid_data4R <- full_join(organoid_data4R, meta4R, by="ImageNr")
 #R5-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Masks_R5_rev_new"
+mask_folder <- "~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Masks_R5_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -176,7 +176,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data5R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta5R <- (read.csv("~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta5R <- (read.csv("~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R5_rev")
@@ -187,7 +187,7 @@ organoid_data5R <- full_join(organoid_data5R, meta5R, by="ImageNr")
 #Combine all data of Revision in one table and export as TSV
 ```{r}
 ImageQuantification_Revision_results <- rbind(organoid_data1R, organoid_data2R, organoid_data3R, organoid_data4R, organoid_data5R)
-write.table(ImageQuantification_Revision_results, file="~/Nextcloud/Saskia&Kim/Experiments_JNK_mCOL_APC/Final_Data_Paper_Revision/Code_Image_Data_for_Git/results/ImageQuantification_Revision_results.tsv")
+write.table(ImageQuantification_Revision_results, file="~/GitHub/Supp_Redhai_Wang_2023/Image_Analysis/Results/ImageQuantification_Revision_results.tsv")
 ```
 
 
