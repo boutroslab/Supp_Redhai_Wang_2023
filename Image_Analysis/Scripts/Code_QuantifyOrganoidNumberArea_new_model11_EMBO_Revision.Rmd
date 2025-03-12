@@ -37,7 +37,7 @@ library(tidyverse)
 #R1-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "../raw_data/ImageMasks_RevisionR1-R5/Masks_R1_rev_new"
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R1_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -56,7 +56,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data1R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta1R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR1.csv", header = TRUE, sep=";"))
+meta1R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR1.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R1_rev")
@@ -67,7 +67,7 @@ organoid_data1R <-full_join(organoid_data1R, meta1R, by="ImageNr")
 #R2-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "../raw_data/ImageMasks_RevisionR1-R5/Masks_R2_rev_new"
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R2_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -86,7 +86,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data2R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta2R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta2R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R2_rev")
@@ -97,7 +97,7 @@ organoid_data2R <- full_join(organoid_data2R, meta2R, by="ImageNr")
 #R3-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "../raw_data/ImageMasks_RevisionR1-R5/Masks_R3_rev_new"
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R3_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -116,7 +116,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data3R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta3R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta3R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R3_rev")
@@ -127,7 +127,7 @@ organoid_data3R <- full_join(organoid_data3R, meta3R, by="ImageNr")
 #R4-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "../raw_data/ImageMasks_RevisionR1-R5/Masks_R4_rev_new"
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R4_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -146,7 +146,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data4R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta4R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta4R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R4_rev")
@@ -157,7 +157,7 @@ organoid_data4R <- full_join(organoid_data4R, meta4R, by="ImageNr")
 #R5-Revision
 ```{r}
 # where are your image masks
-mask_folder <- "../raw_data/ImageMasks_RevisionR1-R5/Masks_R5_rev_new"
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R5_rev_new"
 
 # listing all masks in the folder
 mask_list <- list.files(mask_folder, pattern = ".tif")
@@ -176,7 +176,7 @@ for (i in mask_list){
 }
 # making data frame and matching ImageNumber to well content
 organoid_data5R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
-meta5R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R5/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
+meta5R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR2-R5.csv", header = TRUE, sep=";"))
 
 ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
 Replicate <- c("R5_rev")
@@ -184,9 +184,165 @@ organoid_data5R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
 organoid_data5R <- full_join(organoid_data5R, meta5R, by="ImageNr")
 ```
 
+#R6-Revision
+```{r}
+# where are your image masks
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R6_rev"
+
+# listing all masks in the folder
+mask_list <- list.files(mask_folder, pattern = ".tif")
+# making empty vectors
+n_org <- c()
+area_org <- c()
+radius_mean <- c()
+# running for loop over all mask images
+for (i in mask_list){
+  mask <- readImage(paste0(mask_folder, "/", i), as.is = T)
+  features6R <- as.data.frame(computeFeatures(x = mask,ref = mask,methods.ref = c("computeFeatures.shape")))
+  # you'll receive a bunch of features, you said you were interested in number of organoids and organoid area
+  n_org <- append(n_org ,nrow(features6R)) # number organoids in that image
+  area_org <- append(area_org, sum(features6R$x.0.s.area)) # number of pixels covered by organoid in that image
+  radius_mean <- append(radius_mean, mean(features6R$x.0.s.radius.mean))
+}
+# making data frame and matching ImageNumber to well content
+organoid_data6R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
+meta6R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR6-R11.csv", header = TRUE, sep=";"))
+
+ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
+Replicate <- c("R6_rev")
+organoid_data6R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
+organoid_data6R <- full_join(organoid_data6R, meta6R, by="ImageNr")
+```
+
+#R7-Revision: Note: The mCol APC organoids in this replicate did not grow and the well was empty or almost empty. Thus this replicate cannot be analyzed. 
+
+#R8-Revision
+```{r}
+# where are your image masks
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R8_rev"
+
+# listing all masks in the folder
+mask_list <- list.files(mask_folder, pattern = ".tif")
+# making empty vectors
+n_org <- c()
+area_org <- c()
+radius_mean <- c()
+# running for loop over all mask images
+for (i in mask_list){
+  mask <- readImage(paste0(mask_folder, "/", i), as.is = T)
+  features8R <- as.data.frame(computeFeatures(x = mask,ref = mask,methods.ref = c("computeFeatures.shape")))
+  # you'll receive a bunch of features, you said you were interested in number of organoids and organoid area
+  n_org <- append(n_org ,nrow(features8R)) # number organoids in that image
+  area_org <- append(area_org, sum(features8R$x.0.s.area)) # number of pixels covered by organoid in that image
+  radius_mean <- append(radius_mean, mean(features8R$x.0.s.radius.mean))
+}
+# making data frame and matching ImageNumber to well content
+organoid_data8R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
+meta8R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR6-R11.csv", header = TRUE, sep=";"))
+
+ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
+Replicate <- c("R8_rev")
+organoid_data8R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
+organoid_data8R <- full_join(organoid_data8R, meta8R, by="ImageNr")
+```
+
+
+#R9-Revision
+```{r}
+# where are your image masks
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R9_rev"
+
+# listing all masks in the folder
+mask_list <- list.files(mask_folder, pattern = ".tif")
+# making empty vectors
+n_org <- c()
+area_org <- c()
+radius_mean <- c()
+# running for loop over all mask images
+for (i in mask_list){
+  mask <- readImage(paste0(mask_folder, "/", i), as.is = T)
+  features9R <- as.data.frame(computeFeatures(x = mask,ref = mask,methods.ref = c("computeFeatures.shape")))
+  # you'll receive a bunch of features, you said you were interested in number of organoids and organoid area
+  n_org <- append(n_org ,nrow(features9R)) # number organoids in that image
+  area_org <- append(area_org, sum(features9R$x.0.s.area)) # number of pixels covered by organoid in that image
+  radius_mean <- append(radius_mean, mean(features9R$x.0.s.radius.mean))
+}
+# making data frame and matching ImageNumber to well content
+organoid_data9R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
+meta9R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR6-R11.csv", header = TRUE, sep=";"))
+
+ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
+Replicate <- c("R9_rev")
+organoid_data9R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
+organoid_data9R <- full_join(organoid_data9R, meta9R, by="ImageNr")
+
+```
+
+#R10-Revision
+```{r}
+# where are your image masks
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R10_rev"
+
+# listing all masks in the folder
+mask_list <- list.files(mask_folder, pattern = ".tif")
+# making empty vectors
+n_org <- c()
+area_org <- c()
+radius_mean <- c()
+# running for loop over all mask images
+for (i in mask_list){
+  mask <- readImage(paste0(mask_folder, "/", i), as.is = T)
+  features10R <- as.data.frame(computeFeatures(x = mask,ref = mask,methods.ref = c("computeFeatures.shape")))
+  # you'll receive a bunch of features, you said you were interested in number of organoids and organoid area
+  n_org <- append(n_org ,nrow(features10R)) # number organoids in that image
+  area_org <- append(area_org, sum(features10R$x.0.s.area)) # number of pixels covered by organoid in that image
+  radius_mean <- append(radius_mean, mean(features10R$x.0.s.radius.mean))
+}
+# making data frame and matching ImageNumber to well content
+organoid_data10R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
+meta10R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR6-R11.csv", header = TRUE, sep=";"))
+
+ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
+Replicate <- c("R10_rev")
+organoid_data10R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
+organoid_data10R <- full_join(organoid_data10R, meta10R, by="ImageNr")
+print(organoid_data10R)
+```
+
+#R11-Revision
+```{r}
+# where are your image masks
+mask_folder <- "../raw_data/ImageMasks_RevisionR1-R11/Masks_R11_rev"
+
+# listing all masks in the folder
+mask_list <- list.files(mask_folder, pattern = ".tif")
+# making empty vectors
+n_org <- c()
+area_org <- c()
+radius_mean <- c()
+# running for loop over all mask images
+for (i in mask_list){
+  mask <- readImage(paste0(mask_folder, "/", i), as.is = T)
+  features11R <- as.data.frame(computeFeatures(x = mask,ref = mask,methods.ref = c("computeFeatures.shape")))
+  # you'll receive a bunch of features, you said you were interested in number of organoids and organoid area
+  n_org <- append(n_org ,nrow(features11R)) # number organoids in that image
+  area_org <- append(area_org, sum(features11R$x.0.s.area)) # number of pixels covered by organoid in that image
+  radius_mean <- append(radius_mean, mean(features11R$x.0.s.radius.mean))
+}
+# making data frame and matching ImageNumber to well content
+organoid_data11R <- data.frame(image_name = mask_list, n_org, area_org, radius_mean)
+meta11R <- (read.csv("../raw_data/ImageMasks_RevisionR1-R11/Overview_ImageNr_WellContent_RevisionR6-R11.csv", header = TRUE, sep=";"))
+
+ImageNr <- gsub(".*_(XY[0-9]+)_.*", "\\1", mask_list)
+Replicate <- c("R11_rev")
+organoid_data11R <- data.frame(ImageNr, n_org, area_org, radius_mean, Replicate)
+organoid_data11R <- full_join(organoid_data11R, meta11R, by="ImageNr")
+print(organoid_data11R)
+```
+
 #Combine all data of Revision in one table and export as TSV
 ```{r}
-ImageQuantification_Revision_results <- rbind(organoid_data1R, organoid_data2R, organoid_data3R, organoid_data4R, organoid_data5R)
+ImageQuantification_Revision_results <- rbind(organoid_data1R, organoid_data2R, organoid_data3R, organoid_data4R, organoid_data5R, organoid_data6R, organoid_data8R, organoid_data9R, organoid_data10R, organoid_data11R)
 write.table(ImageQuantification_Revision_results, file="../Results/ImageQuantification_Revision_results.tsv")
 ```
 
